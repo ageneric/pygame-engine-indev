@@ -25,12 +25,15 @@ class Scene:
         for node in self.nodes:
             node.draw(self.screen)
 
-    def add_named_node(self, name: str, node):
+    def add_named_child(self, name: str, node):
         setattr(self, name, node)
-        self.add_node(node)
+        self.add_child(node)
 
-    def add_node(self, node):
+    def add_child(self, node):
         self.nodes.append(node)
+
+    def remove_child(self, node):
+        self.nodes.remove(node)
 
     def handle_events(self, pygame_events):
         pass

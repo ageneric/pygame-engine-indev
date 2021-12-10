@@ -10,7 +10,12 @@ class ExampleBlank(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
 
-        Node(NodeLocalProperties(self, 30, 30))
+        self.n = Node(NodeLocalProperties(self, 30, 30))
+        Node(NodeLocalProperties(self.n, 75, 30))
+
+    def update(self):
+        super().update()
+        self.n.transform.x += 4
 
 class ExampleDetail(Scene):
     def __init__(self, screen, clock):

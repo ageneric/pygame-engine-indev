@@ -20,6 +20,7 @@ def end_of_path(file_directory, depth=2) -> str:
     """Get the last (depth) components of the file path."""
     return '/'.join(file_directory.split(r'/')[-depth:])
 
+"""
 class Menu(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
@@ -176,6 +177,7 @@ class Editor(Scene):
 
     def set_tool_rect(self):
         self.set_tool(self.b_use_rect, Editor.add_rect)
+"""
 
 
 class Test(Scene):

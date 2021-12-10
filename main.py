@@ -2,7 +2,7 @@
 
 # pygame 2.0.1 (SDL 2.0.12, python 3.8.2)
 import pygame as pg
-import scenes
+import legacy_scenes
 from constants import *
 from importlib import reload, import_module
 
@@ -24,8 +24,8 @@ def main():
     surf_detail = pg.Surface((display_width, SURF_HEIGHT))
 
     print('3/3 Starting: main loop')
-    scene = scenes.Test(surf, clock)
-    scene_detail = scenes.Detail(surf_detail, clock)
+    scene = legacy_scenes.Test(surf, clock)
+    scene_detail = legacy_scenes.Detail(surf_detail, clock)
 
     running = True
 
@@ -44,8 +44,8 @@ def main():
                     if event.key == pg.K_LSHIFT:
                         print("reset!")
                         # noinspection PyTypeChecker
-                        reload(scenes)
-                        scene = scenes.Test(surf, clock)
+                        reload(legacy_scenes)
+                        scene = legacy_scenes.Test(surf, clock)
             scene.handle_events(events)
 
         # Update scene and display --

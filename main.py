@@ -2,17 +2,23 @@
 
 # pygame 2.0.1 (SDL 2.0.12, python 3.8.2)
 import pygame as pg
-import legacy_scenes
+import scenes
 from constants import *
-from importlib import reload, import_module
+from importlib import reload
 
 print('1/3 Starting: pygame initialisation')
 clock = pg.time.Clock()
 
 pg.init()
 
+def initialise_scenes(surf, surf_detail, first_scene_name, detail_name):
+    scene = getattr(scenes, first_scene_name)(surf, clock)
+    scene_detail = getattr(scenes, detail_name)(surf_detail, clock)
+    scene_detail.set_ref(scene.nodes)
+    return scene, scene_detail
+
 def main():
-    SURF_HEIGHT = 60
+    SURF_HEIGHT = 150
     
     print(f'2/3 Starting: screen resolution {display_width}, {display_height}.')
     if pg.version.vernum[0] >= 2:
@@ -24,8 +30,7 @@ def main():
     surf_detail = pg.Surface((display_width, SURF_HEIGHT))
 
     print('3/3 Starting: main loop')
-    scene = legacy_scenes.Test(surf, clock)
-    scene_detail = legacy_scenes.Detail(surf_detail, clock)
+    scene, scene_detail = initialise_scenes(surf, surf_detail, 'ExampleBlank', 'ExampleDetail')
 
     running = True
 
@@ -40,12 +45,11 @@ def main():
         else:
             events = pg.event.get()
             for event in events:
-                if event.type == pg.KEYDOWN:
-                    if event.key == pg.K_LSHIFT:
-                        print("reset!")
-                        # noinspection PyTypeChecker
-                        reload(legacy_scenes)
-                        scene = legacy_scenes.Test(surf, clock)
+                if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
+                    print("reset!")
+                    # noinspection PyTypeChecker
+                    reload(scenes)
+                    scene, scene_detail = initialise_scenes(surf, surf_detail, 'ExampleBlank', 'ExampleDetail')
             scene.handle_events(events)
 
         # Update scene and display --

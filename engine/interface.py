@@ -1,11 +1,8 @@
 import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 
-from .text import draw
 from .base_node import SpriteNode
-import legacy_text
-from .text import draw as text_draw
-from .base_node import Transform
+import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
 COLOR_DEFAULT = (191, 131, 191)
@@ -34,19 +31,17 @@ def specify_color(style, try_key, fallback_key, saturation=0.0):
 class Button(SpriteNode):
     idle, hover, press, disabled = range(4)
 
-    def __init__(self, transform, message="", callback=None, parent=None, group=None,
-                 enabled=True, visible=True, **kwargs):
+    def __init__(self, state, message="", callback=None, group=None, **kwargs):
         # TODO: parse kwargs for color
         # TODO: fix dirty and rect
         self.dirty = 1
-        transform = Transform(*transform)
         if not (image := kwargs.get("image", None)):
-            image = pygame.Surface((transform.width, transform.height))
+            image = pygame.Surface(state.transform.size)
             image.fill(COLOR_DEFAULT)
             self.background_image = None
         else:
             self.background_image = image.copy()
-        super(Button, self).__init__(transform, image, parent, group, enabled, visible)
+        super(Button, self).__init__(state, image, group)
         self.callback = callback
         self.message = message
 
@@ -61,7 +56,7 @@ class Button(SpriteNode):
         self.pre_render_text()
 
     def pre_render_text(self):
-        return legacy_text.render(self.message, color=self.style['color'], save_sprite=True)
+        return text.render(self.message, color=self.style['color'], save_sprite=True)
 
     def mouse_event(self, event):
         """Pass each pygame mouse event to the button,
@@ -100,13 +95,13 @@ class Button(SpriteNode):
             if self.background_image:
                 self.image.blit(self.background_image, (0, 0))
                 color = self.accent_color()
-                text_draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2), color=color, justify=True)
+                text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2), color=color, justify=True)
             else:
                 box_color = self.background_color()
                 color = self.accent_color()
 
-                legacy_text.box(self.image, self.message, (0, 0),
-                                self.rect.width, self.rect.height, True, box_color, color=color)
+                text.box(self.image, self.message, (0, 0),
+                         self.rect.width, self.rect.height, True, box_color, color=color)
 
     def background_color(self):
         if self.state == Button.hover:

@@ -141,7 +141,7 @@ class Node:
 class SpriteNode(pygame.sprite.DirtySprite, Node):
     def __init__(self, state: NodeLocalProperties, *groups, image=None):
         Node.__init__(self, state)
-        pygame.sprite.Sprite.__init__(self, *groups)
+        pygame.sprite.Sprite.__init__(self, groups)
         self.rect = self.world_rect()
         print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
         if image:

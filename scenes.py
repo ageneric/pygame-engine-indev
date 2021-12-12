@@ -1,5 +1,6 @@
 import pygame
 import engine.text as text
+import engine.interface as interface
 from engine.base_scene import Scene
 from engine.base_node import Node, SpriteNode, NodeLocalProperties
 from constants import *
@@ -15,14 +16,39 @@ class ExampleBlank(Scene):
 
     def update(self):
         super().update()
-        self.n.transform.x += 4
+        self.n.transform.x = self.n.transform.x + 1 % self.display_size_x
+
+class ExampleHandling(Scene):
+    """Demo interface components and event handling."""
+    def __init__(self, screen, clock):
+        super().__init__(screen, clock)
+        self.group = pygame.sprite.Group()
+
+        def callback():
+            print('button click -> demo')
+
+        button = interface.Button(NodeLocalProperties(self, 100, 100, 150, 50),
+                                  'Demo clickable', callback, self.group, background=C_LIGHT)
+        image = pygame.image.load('Assets/Placeholder.png').convert()
+        button2 = interface.Button(NodeLocalProperties(self, 100, 200, 32, 32),
+                                   'Image clickable', callback, self.group, image=image)
+        self.event_handlers.append(button)
+        self.event_handlers.append(button2)
+        self.groups.append(self.group)
+
+    def handle_events(self, pygame_events):
+        for event in pygame_events:
+            if event.type in interface.MOUSE_EVENTS:
+                for button in self.event_handlers:
+                    button.mouse_event(event)
+
 
 class ExampleDetail(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
         self.group = pygame.sprite.Group()
 
-        self.tree_tab = TreeTab(NodeLocalProperties(self, 30, 20, display_width - 30, 125),
+        self.tree_tab = TreeTab(NodeLocalProperties(self, 30, 20, self.display_size_x - 30, 125),
                                 self.group, None)
 
         self.groups.append(self.group)

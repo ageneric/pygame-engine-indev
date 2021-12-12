@@ -3,8 +3,6 @@ from tkinter import Tk
 Tk().withdraw()  # Do not show a root window.
 
 import pygame as pg
-# from interface import Button, Toggle, MOUSE_EVENTS
-from unused_component_based_node import ComponentBasedNode, ImageComponent
 import legacy_text
 from engine.base_scene import Scene
 from engine.interface import Button

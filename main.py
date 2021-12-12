@@ -11,16 +11,19 @@ clock = pg.time.Clock()
 
 pg.init()
 
-def initialise_scenes(surf, surf_detail, first_scene_name, detail_name):
+def initialise_scenes(surf, surf_detail, first_scene_name, detail_scene_name):
+    print(f'Initialising scenes ({first_scene_name}, {detail_scene_name})')
     scene = getattr(scenes, first_scene_name)(surf, clock)
-    scene_detail = getattr(scenes, detail_name)(surf_detail, clock)
+    scene_detail = getattr(scenes, detail_scene_name)(surf_detail, clock)
     scene_detail.set_ref(scene.nodes)
     return scene, scene_detail
 
 def main():
     SURF_HEIGHT = 150
+    FIRST_SCENE_NAME = 'ExampleHandling'
+    DETAIL_SCENE_NAME = 'ExampleDetail'
     
-    print(f'2/3 Starting: screen resolution {display_width}, {display_height}.')
+    print(f'2/3 Starting: screen resolution {display_width}, {display_height}')
     if pg.version.vernum[0] >= 2:
         screen = pg.display.set_mode((display_width, display_height + SURF_HEIGHT), pg.RESIZABLE)
     else:
@@ -30,7 +33,7 @@ def main():
     surf_detail = pg.Surface((display_width, SURF_HEIGHT))
 
     print('3/3 Starting: main loop')
-    scene, scene_detail = initialise_scenes(surf, surf_detail, 'ExampleBlank', 'ExampleDetail')
+    scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
 
     running = True
 
@@ -46,10 +49,9 @@ def main():
             events = pg.event.get()
             for event in events:
                 if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
-                    print("reset!")
                     # noinspection PyTypeChecker
                     reload(scenes)
-                    scene, scene_detail = initialise_scenes(surf, surf_detail, 'ExampleBlank', 'ExampleDetail')
+                    scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
             scene.handle_events(events)
 
         # Update scene and display --

@@ -34,6 +34,8 @@ class Scene:
 
     def remove_child(self, node):
         self.nodes.remove(node)
+        if node in self.event_handlers:
+            self.event_handlers.remove(node)
 
     def handle_events(self, pygame_events):
         pass

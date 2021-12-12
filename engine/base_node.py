@@ -1,29 +1,5 @@
 import pygame
 
-"""
-    def handle_events(self, events):
-        self.event_handlers = {}
-        # {pygame.KEYDOWN: function}
-
-        for event in events:
-            if event.type in self.event_handlers.keys():
-                self.event_handlers[event.type](event)
-
-    @self.event(pygame.KEYDOWN)
-
-@window.event
-def on_draw ():
-    pass
-
-@window.event
-def on_click (x, y, modifiers):
-    pass
-
-# Get the method with the name draw() if it exists and call it
-draw_method = getattr(node, "draw", None)
-if callable(draw_method):
-    draw_method(self.screen)
-"""
 
 class Anchor:
     top = left = 0
@@ -92,12 +68,12 @@ class Transform:
         self.anchor_x, self.anchor_y = anchor_x_y
 
 class Node:
-    def __init__(self, state: NodeLocalProperties):
-        assert isinstance(state, NodeLocalProperties)
-        self.parent = state.parent
-        self.enabled = state.enabled
-        self.visible = state.visible
-        self.transform = state.transform
+    def __init__(self, node_props: NodeLocalProperties):
+        assert isinstance(node_props, NodeLocalProperties)
+        self.parent = node_props.parent
+        self.enabled = node_props.enabled
+        self.visible = node_props.visible
+        self.transform = node_props.transform
         # For each property in local_properties, set this on the node
         # self.__dict__.update(local_properties.__dict__)
         self.parent.nodes.append(self)
@@ -139,25 +115,28 @@ class Node:
 
 
 class SpriteNode(pygame.sprite.DirtySprite, Node):
-    def __init__(self, state: NodeLocalProperties, *groups, image=None):
-        Node.__init__(self, state)
-        pygame.sprite.Sprite.__init__(self, *groups)
+    def __init__(self, node_props: NodeLocalProperties, *groups, image=None, fill_color=None):
+        if isinstance(groups[0], pygame.sprite.AbstractGroup):
+            pygame.sprite.DirtySprite.__init__(self, *groups)
+        else:
+            print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.\n'
+                  + 'This may be because the "group" parameter was missed.')
+            pygame.sprite.DirtySprite.__init__(self)
+
+        Node.__init__(self, node_props)
         self.rect = self.world_rect()
         print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
+
         if image:
             self.image = pygame.Surface(self.transform.size, 0, image)
         else:
             self.image = pygame.Surface(self.transform.size)
+            if fill_color:
+                self.image.fill(fill_color)
 
     def update(self):
         Node.update(self)
         self.rect = self.world_rect()
-
-    @classmethod
-    def single_color(cls, parent, super_properties, color, *groups):
-        image = pygame.Surface((super_properties.width, super_properties.height))
-        image.fill(color)
-        return cls(parent, super_properties, *groups, image=image)
 
     def __del__(self):
         print("del", self)

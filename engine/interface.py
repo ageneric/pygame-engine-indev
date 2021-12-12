@@ -6,7 +6,7 @@ import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
 COLOR_DEFAULT = (191, 131, 191)
-BACKGROUND_DEFAULT = (15, 15, 15)
+BACKGROUND_DEFAULT = (20, 20, 24)
 
 def modify_color_component(color_component, saturation):
     """Lighten or darken an rgb value by the saturation percentage."""
@@ -29,25 +29,23 @@ def specify_color(style, try_key, fallback_key, saturation=0.0):
     return color
 
 class Button(SpriteNode):
+    """A button. The keyword arguments color and background change the appearance.
+    The argument callback is a function taking no parameters. It is called on click.
+    To add parameters to the callback, it is recommended to inherit from this class.
+    """
     idle, hover, press, disabled = range(4)
 
-    def __init__(self, state, message="", callback=None, group=None, **kwargs):
-        # TODO: parse kwargs for color
-        # TODO: fix dirty and rect
-        self.dirty = 1
-        if not (image := kwargs.get("image", None)):
-            image = pygame.Surface(state.transform.size)
-            image.fill(COLOR_DEFAULT)
-            self.background_image = None
-        else:
-            self.background_image = image.copy()
-        super(Button, self).__init__(state, image, group)
+    def __init__(self, node_props, message="", callback=None, group=None, **kwargs):
+        self.background_image = kwargs.get("image", None)
+        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
+        super(Button, self).__init__(node_props, group, image=self.background_image,
+                                     fill_color=fill_color)
         self.callback = callback
         self.message = message
 
         self.style = {
             'color': COLOR_DEFAULT,
-            'background': BACKGROUND_DEFAULT
+            'background': (0, 0, 0)
         }
         self.style.update(kwargs)
 
@@ -116,3 +114,13 @@ class Button(SpriteNode):
         if self.state == Button.disabled:
             return specify_color(self.style, 'color_disabled', 'color', -20)
         return self.style['color']
+
+class TextEntry(SpriteNode):
+    """A single line rectangular box that can be typed in."""
+    idle, selected = range(2)
+
+    def enter(self):
+        pass
+
+class Grid(SpriteNode):
+    """A container for equally spaced UI items that draws them onto a buffer."""

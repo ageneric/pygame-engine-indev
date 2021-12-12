@@ -5,11 +5,8 @@ from engine.base_node import Node, SpriteNode, Transform
 from constants import C_LIGHT, C_DARK, C_RED, C_LIGHT_ISH, C_DARK_ISH
 
 class TreeTab(SpriteNode):
-    def __init__(self, state, group=None, ref=None):
-        # TODO: fix dirty and rect
-        self.dirty = 1
-        image = pygame.Surface(state.transform.size)
-        super(TreeTab, self).__init__(state, group, image=image)
+    def __init__(self, node_props, group=None, ref=None):
+        super(TreeTab, self).__init__(node_props, group, fill_color=C_LIGHT_ISH)
         self.ref = ref
 
     def draw(self, scene):

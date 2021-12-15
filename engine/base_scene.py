@@ -14,16 +14,17 @@ class Scene:
         self.event_handlers = []
 
     def update(self):
-        for node in self.nodes:
-            node.update()
+        for child in self.nodes:
+            if child.enabled:
+                child.update()
 
     def draw(self):
         # TODO: screen fill default?
+        for child in self.nodes:
+            child.draw(self.screen)
+
         for group in self.groups:
             group.draw(self.screen)
-
-        for node in self.nodes:
-            node.draw(self.screen)
 
     def add_named_child(self, name: str, node):
         setattr(self, name, node)

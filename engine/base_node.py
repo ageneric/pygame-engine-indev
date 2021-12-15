@@ -7,14 +7,14 @@ class Anchor:
     bottom = right = 1
 
 class NodeLocalProperties:
-    def __init__(self, parent, x, y, width=0, height=0, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=True):
+    def __init__(self, parent, x, y, width=0, height=0, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=1):
         self.parent = parent
         self.enabled = enabled
         self.visible = visible
         self.transform = Transform(x, y, width, height, anchor_x, anchor_y, rotation)
 
     @classmethod
-    def from_rect(cls, parent, rect, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=True):
+    def from_rect(cls, parent, rect, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=1):
         return cls(parent, rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y, rotation, enabled, visible)
 
 class Transform:
@@ -28,7 +28,7 @@ class Transform:
         self.rotation = rotation
 
     def __repr__(self) -> str:
-        return f'(XY {self.x}, {self.y}, WH {self.width}, {self.height}, anchorXY {self.anchor_x}, {self.anchor_y})'
+        return f'(XY {self.x}, {self.y}, WH {self.width}, {self.height}, aXY {self.anchor_x}, {self.anchor_y})'
 
     @classmethod
     def from_rect(cls, rect, anchor_x=0, anchor_y=0, rotation=0):
@@ -71,8 +71,8 @@ class Node:
     def __init__(self, node_props: NodeLocalProperties):
         assert isinstance(node_props, NodeLocalProperties)
         self.parent = node_props.parent
-        self.enabled = node_props.enabled
         self.visible = node_props.visible
+        self._enabled = node_props.enabled
         self.transform = node_props.transform
         # For each property in local_properties, set this on the node
         # self.__dict__.update(local_properties.__dict__)
@@ -80,14 +80,13 @@ class Node:
         self.nodes = []
 
     def update(self):
-        if self.enabled:
-            for child in self.nodes:
+        for child in self.nodes:
+            if child.enabled:
                 child.update()
 
     def draw(self, surface):
-        if self.visible:
-            for child in self.nodes:
-                child.draw(surface)
+        for child in self.nodes:
+            child.draw(surface)
 
     def add_child(self, child):
         self.nodes.append(child)
@@ -112,6 +111,21 @@ class Node:
             child = self.nodes.pop(0)
             if child:
                 del child
+
+    @property
+    def enabled(self):
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, set_enable: bool):
+        self._enabled = set_enable
+        self.set_visible_on_self_and_all_children(int(set_enable))
+
+    def set_visible_on_self_and_all_children(self, set_visible):
+        if self.visible < 2:
+            self.visible = set_visible and self._enabled
+        for child in self.nodes:
+            child.set_visible_on_self_and_all_children(set_visible)
 
 
 class SpriteNode(pygame.sprite.DirtySprite, Node):

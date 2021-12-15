@@ -22,19 +22,44 @@ class ExampleHandling(Scene):
     """Demo interface components and event handling."""
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        self.group = pygame.sprite.Group()
+        self.background = pygame.Surface(self.display_size)
+        self.background.fill((0, 0, 8))
+        self.group = pygame.sprite.LayeredDirty()
 
         def callback():
             print('button click -> demo')
 
-        button = interface.Button(NodeLocalProperties(self, 100, 100, 150, 50),
-                                  'Demo clickable', callback, self.group, background=C_LIGHT)
+        self.button = interface.Button(NodeLocalProperties(self, 100, 100, 150, 50),
+                                       'Demo clickable', callback, self.group, background=C_LIGHT)
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        button2 = interface.Button(NodeLocalProperties(self, 100, 200, 32, 32),
-                                   'Image clickable', callback, self.group, image=image)
-        self.event_handlers.append(button)
-        self.event_handlers.append(button2)
+        toggle_visible_button = interface.Button(NodeLocalProperties(self, 100, 200, 32, 32),
+                                                 'Image clickable', self.toggle_button, self.group,
+                                                 image=image)
+        self.event_handlers.append(self.button)
+        self.event_handlers.append(toggle_visible_button)
         self.groups.append(self.group)
+
+        self.group2 = pygame.sprite.LayeredDirty()
+
+        self.test_button = interface.Button(NodeLocalProperties(self, 125, 125, 250, 50),
+                                            'Second group clickable', callback, self.group,
+                                            background=C_DARK)
+        self.event_handlers.append(self.test_button)
+
+        self.test_node = Node(NodeLocalProperties(self.test_button, 200, 200))
+
+        self.groups.append(self.group2)
+
+    def draw(self):
+        for group in self.groups:
+            group.clear(self.screen, self.background)
+        # self.screen.fill((0, 0, 8))
+
+        super().draw()
+
+    def toggle_button(self):
+        self.button.enabled = not self.button.enabled
+        self.test_button.enabled = not self.test_button.enabled
 
     def handle_events(self, pygame_events):
         for event in pygame_events:
@@ -52,6 +77,7 @@ class ExampleDetail(Scene):
                                 self.group, None)
 
         self.groups.append(self.group)
+        self.recent_frames_ms = []
 
     def set_ref(self, ref):
         self.tree_tab.ref = ref
@@ -60,6 +86,11 @@ class ExampleDetail(Scene):
         self.screen.fill(C_LIGHT)
         super().draw()
 
-        message = f'{self.clock.get_rawtime()}ms processing time / tick'
+        rawtime = self.clock.get_rawtime()
+        self.recent_frames_ms.append(rawtime)
+        if len(self.recent_frames_ms) > FPS:
+            self.recent_frames_ms.pop(0)
+
+        message = f'{rawtime}ms processing time / tick ({sum(self.recent_frames_ms)}ms / s)'
         text.draw(self.screen, message, (30, 5),
                   color=C_DARK_ISH, justify=(False, False))

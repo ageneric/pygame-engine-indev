@@ -85,9 +85,6 @@ class Button(SpriteNode):
     def on_click(self):
         self.callback()
 
-    def update(self):
-        super().update()
-
     def draw(self, surface):
         if self.visible and self.dirty:
             if self.background_image:

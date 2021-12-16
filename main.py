@@ -48,15 +48,16 @@ def main():
         else:
             events = pg.event.get()
             for event in events:
-                # Left shift: reload the scenes module and instantiate the scenes again
-                if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
-                    # noinspection PyTypeChecker
-                    reload(scenes)
-                    scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
-                # Tab: toggle the tree tab refresh (temporary)
-                if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
-                    pg.draw.rect(scene_detail.tree_tab.image, (0, 0, 0), (0, 8, 8, 8))
-                    scene_detail.tree_tab.visible = int(not scene_detail.tree_tab.visible)
+                if event.type == pg.KEYDOWN:
+                    # Left shift: reload the scenes module and instantiate the scenes again
+                    if event.key == pg.K_LSHIFT:
+                        # noinspection PyTypeChecker
+                        reload(scenes)
+                        scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
+                    elif event.key == pg.K_TAB:
+                        # Tab: toggle the tree tab refresh (temporary)
+                        pg.draw.rect(scene_detail.tree_tab.image, (0, 0, 0), (0, 8, 8, 8))
+                        scene_detail.tree_tab.enabled = not scene_detail.tree_tab.enabled
             scene.handle_events(events)
 
         # Update scene and display --

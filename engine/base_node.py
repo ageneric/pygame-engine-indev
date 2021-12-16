@@ -86,7 +86,8 @@ class Node:
 
     def draw(self, surface):
         for child in self.nodes:
-            child.draw(surface)
+            if child.enabled:
+                child.draw(surface)
 
     def add_child(self, child):
         self.nodes.append(child)

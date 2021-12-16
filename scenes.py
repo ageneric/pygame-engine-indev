@@ -23,7 +23,7 @@ class ExampleHandling(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
         self.background = pygame.Surface(self.display_size)
-        self.background.fill((0, 0, 8))
+        self.background.fill((64, 0, 0))
         self.group = pygame.sprite.LayeredDirty()
 
         def callback():
@@ -42,20 +42,15 @@ class ExampleHandling(Scene):
         self.group2 = pygame.sprite.LayeredDirty()
 
         self.test_button = interface.Button(NodeLocalProperties(self, 125, 125, 250, 50),
-                                            'Second group clickable', callback, self.group,
+                                            'Second group clickable', callback, self.group2,
                                             background=C_DARK)
         self.event_handlers.append(self.test_button)
 
         self.test_node = Node(NodeLocalProperties(self.test_button, 200, 200))
 
         self.groups.append(self.group2)
-
-    def draw(self):
         for group in self.groups:
             group.clear(self.screen, self.background)
-        # self.screen.fill((0, 0, 8))
-
-        super().draw()
 
     def toggle_button(self):
         self.button.enabled = not self.button.enabled
@@ -73,7 +68,7 @@ class ExampleDetail(Scene):
         super().__init__(screen, clock)
         self.group = pygame.sprite.Group()
 
-        self.tree_tab = TreeTab(NodeLocalProperties(self, 30, 20, self.display_size_x - 30, 125),
+        self.tree_tab = TreeTab(NodeLocalProperties(self, 30, 20, self.display_size_x - 30, 125, enabled=False),
                                 self.group, None)
 
         self.groups.append(self.group)
@@ -91,6 +86,6 @@ class ExampleDetail(Scene):
         if len(self.recent_frames_ms) > FPS:
             self.recent_frames_ms.pop(0)
 
-        message = f'{rawtime}ms processing time / tick ({sum(self.recent_frames_ms)}ms / s)'
+        message = f'{rawtime}ms processing time / frame ({sum(self.recent_frames_ms)}ms / s)'
         text.draw(self.screen, message, (30, 5),
                   color=C_DARK_ISH, justify=(False, False))

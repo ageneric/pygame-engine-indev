@@ -21,7 +21,8 @@ class Scene:
     def draw(self):
         # TODO: screen fill default?
         for child in self.nodes:
-            child.draw(self.screen)
+            if child.enabled:
+                child.draw(self.screen)
 
         for group in self.groups:
             group.draw(self.screen)

@@ -1,21 +1,14 @@
 import pygame
+from collections import namedtuple
 
+NodeProperties = namedtuple('NodeProperties', ['parent',
+                            'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'rotation', 'enabled'],
+                            defaults=[0, 0, 0, 0, 0, 0, 0, True])
 
 class Anchor:
     top = left = 0
     center = middle = 0.5
     bottom = right = 1
-
-class NodeLocalProperties:
-    def __init__(self, parent, x, y, width=0, height=0, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=1):
-        self.parent = parent
-        self.enabled = enabled
-        self.visible = visible
-        self.transform = Transform(x, y, width, height, anchor_x, anchor_y, rotation)
-
-    @classmethod
-    def from_rect(cls, parent, rect, anchor_x=0, anchor_y=0, rotation=0, enabled=True, visible=1):
-        return cls(parent, rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y, rotation, enabled, visible)
 
 class Transform:
     def __init__(self, x, y, width=0, height=0, anchor_x=0, anchor_y=0, rotation=0):
@@ -68,12 +61,10 @@ class Transform:
         self.anchor_x, self.anchor_y = anchor_x_y
 
 class Node:
-    def __init__(self, node_props: NodeLocalProperties):
-        assert isinstance(node_props, NodeLocalProperties)
-        self.parent = node_props.parent
-        self.visible = node_props.visible
-        self._enabled = node_props.enabled
-        self.transform = node_props.transform
+    def __init__(self, node_props: NodeProperties):
+        self.parent = node_props[0]
+        self.transform = Transform(*node_props[1:-1])
+        self._enabled = node_props[-1]
         # For each property in local_properties, set this on the node
         # self.__dict__.update(local_properties.__dict__)
         self.parent.nodes.append(self)
@@ -120,17 +111,15 @@ class Node:
     @enabled.setter
     def enabled(self, set_enable: bool):
         self._enabled = set_enable
-        self.set_visible_on_self_and_all_children(int(set_enable))
+        self.cascade_set_visible(set_enable)
 
-    def set_visible_on_self_and_all_children(self, set_visible):
-        if self.visible < 2:
-            self.visible = set_visible and self._enabled
+    def cascade_set_visible(self, set_visible: bool):
         for child in self.nodes:
-            child.set_visible_on_self_and_all_children(set_visible)
+            child.cascade_set_visible(set_visible)
 
 
 class SpriteNode(pygame.sprite.DirtySprite, Node):
-    def __init__(self, node_props: NodeLocalProperties, *groups, image=None, fill_color=None):
+    def __init__(self, node_props: NodeProperties, *groups, image=None, fill_color=None):
         if isinstance(groups[0], pygame.sprite.AbstractGroup):
             pygame.sprite.DirtySprite.__init__(self, *groups)
         else:
@@ -139,6 +128,7 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)
+        self._visible = self.enabled
         self.rect = self.world_rect()
         print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
 
@@ -157,3 +147,9 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
         print("del", self)
         pygame.sprite.Sprite.kill(self)
         Node.__del__(self)
+
+    def cascade_set_visible(self, set_visible):
+        self.visible = set_visible and self._enabled
+
+        for child in self.nodes:
+            child.cascade_set_visible(set_visible)

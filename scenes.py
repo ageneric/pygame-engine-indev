@@ -2,7 +2,7 @@ import pygame
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
-from engine.base_node import Node, SpriteNode, NodeLocalProperties
+from engine.base_node import Node, SpriteNode, NodeProperties
 from constants import *
 
 from tree_tab import TreeTab
@@ -11,8 +11,8 @@ class ExampleBlank(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
 
-        self.n = Node(NodeLocalProperties(self, 30, 30))
-        Node(NodeLocalProperties(self.n, 75, 30))
+        self.n = Node(NodeProperties(self, 30, 30))
+        Node(NodeProperties(self, 75, 75))
 
     def update(self):
         super().update()
@@ -29,10 +29,10 @@ class ExampleHandling(Scene):
         def callback():
             print('button click -> demo')
 
-        self.button = interface.Button(NodeLocalProperties(self, 100, 100, 150, 50),
+        self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50),
                                        'Demo clickable', callback, self.group, background=C_LIGHT)
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        toggle_visible_button = interface.Button(NodeLocalProperties(self, 100, 200, 32, 32),
+        toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32),
                                                  'Image clickable', self.toggle_button, self.group,
                                                  image=image)
         self.event_handlers.append(self.button)
@@ -41,12 +41,12 @@ class ExampleHandling(Scene):
 
         self.group2 = pygame.sprite.LayeredDirty()
 
-        self.test_button = interface.Button(NodeLocalProperties(self, 125, 125, 250, 50),
+        self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50),
                                             'Second group clickable', callback, self.group2,
                                             background=C_DARK)
         self.event_handlers.append(self.test_button)
 
-        self.test_node = Node(NodeLocalProperties(self.test_button, 200, 200))
+        self.test_node = Node(NodeProperties(self.test_button, 200, 200))
 
         self.groups.append(self.group2)
         for group in self.groups:
@@ -68,7 +68,7 @@ class ExampleDetail(Scene):
         super().__init__(screen, clock)
         self.group = pygame.sprite.Group()
 
-        self.tree_tab = TreeTab(NodeLocalProperties(self, 30, 20, self.display_size_x - 30, 125, enabled=False),
+        self.tree_tab = TreeTab(NodeProperties(self, 30, 20, self.display_size_x - 30, 125, enabled=False),
                                 self.group, None)
 
         self.groups.append(self.group)

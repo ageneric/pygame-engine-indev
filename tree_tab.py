@@ -20,17 +20,17 @@ class TreeTab(SpriteNode):
         start = flat_index
         for child in target:
             if isinstance(child, SpriteNode):
-                symbol = "s"
+                symbol = 's'
             elif isinstance(child, Node):
-                symbol = "n"
+                symbol = 'n'
             else:
-                symbol = "?"
+                symbol = '?'
 
-            message = " ".join((str(type(child)).lstrip("<class ").rstrip(">"), str(child.transform)))
-            state = ("e" if child.enabled else " ") + ("v" if child.visible else " ")
+            message = ' '.join((str(type(child)).lstrip('<class ').rstrip('>'), str(child.transform)))
+            state = ('e' if child.enabled else '') + ('v' if getattr(child, 'visible', False) else '')
 
-            if getattr(child, 'message', None):
-                message = repr(getattr(child, 'message')) + " " + message
+            if getattr(child, 'message', False):
+                message = repr(getattr(child, 'message')) + ' ' + message
 
             engine.text.draw(self.image, symbol, (level*18, flat_index*18), color=C_RED, static=True)
             engine.text.draw(self.image, state, (level*18 + 9, flat_index*18), color=C_DARK_ISH, static=True)

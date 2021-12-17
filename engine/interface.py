@@ -1,15 +1,12 @@
 import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 
-from .text import draw
 from .base_node import SpriteNode
-import legacy_text
-from .text import draw as text_draw
-from .base_node import Transform
+import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
 COLOR_DEFAULT = (191, 131, 191)
-BACKGROUND_DEFAULT = (15, 15, 15)
+BACKGROUND_DEFAULT = (20, 20, 24)
 
 def modify_color_component(color_component, saturation):
     """Lighten or darken an rgb value by the saturation percentage."""
@@ -32,27 +29,23 @@ def specify_color(style, try_key, fallback_key, saturation=0.0):
     return color
 
 class Button(SpriteNode):
+    """A button. The keyword arguments color and background change the appearance.
+    The argument callback is a function taking no parameters. It is called on click.
+    To add parameters to the callback, it is recommended to inherit from this class.
+    """
     idle, hover, press, disabled = range(4)
 
-    def __init__(self, transform, message="", callback=None, parent=None, group=None,
-                 enabled=True, visible=True, **kwargs):
-        # TODO: parse kwargs for color
-        # TODO: fix dirty and rect
-        self.dirty = 1
-        transform = Transform(*transform)
-        if not (image := kwargs.get("image", None)):
-            image = pygame.Surface((transform.width, transform.height))
-            image.fill(COLOR_DEFAULT)
-            self.background_image = None
-        else:
-            self.background_image = image.copy()
-        super(Button, self).__init__(transform, image, parent, group, enabled, visible)
+    def __init__(self, node_props, message="", callback=None, group=None, **kwargs):
+        self.background_image = kwargs.get("image", None)
+        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
+        super(Button, self).__init__(node_props, group, image=self.background_image,
+                                     fill_color=fill_color)
         self.callback = callback
         self.message = message
 
         self.style = {
             'color': COLOR_DEFAULT,
-            'background': BACKGROUND_DEFAULT
+            'background': (0, 0, 0)
         }
         self.style.update(kwargs)
 
@@ -61,7 +54,7 @@ class Button(SpriteNode):
         self.pre_render_text()
 
     def pre_render_text(self):
-        return legacy_text.render(self.message, color=self.style['color'], save_sprite=True)
+        return text.render(self.message, color=self.style['color'], save_sprite=True)
 
     def mouse_event(self, event):
         """Pass each pygame mouse event to the button,
@@ -92,21 +85,18 @@ class Button(SpriteNode):
     def on_click(self):
         self.callback()
 
-    def update(self):
-        super().update()
-
     def draw(self, surface):
         if self.visible and self.dirty:
             if self.background_image:
                 self.image.blit(self.background_image, (0, 0))
                 color = self.accent_color()
-                text_draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2), color=color, justify=True)
+                text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2), color=color, justify=True)
             else:
                 box_color = self.background_color()
                 color = self.accent_color()
 
-                legacy_text.box(self.image, self.message, (0, 0),
-                                self.rect.width, self.rect.height, True, box_color, color=color)
+                text.box(self.image, self.message, (0, 0),
+                         self.rect.width, self.rect.height, True, box_color, color=color)
 
     def background_color(self):
         if self.state == Button.hover:
@@ -121,3 +111,13 @@ class Button(SpriteNode):
         if self.state == Button.disabled:
             return specify_color(self.style, 'color_disabled', 'color', -20)
         return self.style['color']
+
+class TextEntry(SpriteNode):
+    """A single line rectangular box that can be typed in."""
+    idle, selected = range(2)
+
+    def enter(self):
+        pass
+
+class Grid(SpriteNode):
+    """A container for equally spaced UI items that draws them onto a buffer."""

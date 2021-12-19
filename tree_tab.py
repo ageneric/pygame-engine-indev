@@ -1,10 +1,10 @@
 import pygame
 import engine.text
-from engine.interface import Button
 from engine.base_node import Node, SpriteNode, Transform
 from constants import C_LIGHT, C_DARK, C_RED, C_LIGHT_ISH, C_DARK_ISH
+from collections import namedtuple
 
-# TODO: optimise TreeTab display to not re-render labels for nodes that did not change
+TreeEntry = namedtuple('TreeEntry', ['nodes', 'node_uid', 'enabled', 'visible', 'tree_image'])
 
 class TreeTab(SpriteNode):
     def __init__(self, node_props, group=None, ref=None):

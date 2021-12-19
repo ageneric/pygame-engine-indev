@@ -2,7 +2,7 @@ import pygame
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
-from engine.base_node import Node, SpriteNode, NodeProperties
+from engine.base_node import Node, NodeProperties
 from constants import *
 
 from tree_tab import TreeTab
@@ -46,6 +46,11 @@ class ExampleHandling(Scene):
                                             background=C_DARK)
         self.event_handlers.append(self.test_button)
 
+        self.test_entry = interface.TextEntry(NodeProperties(self, 125, 425, 350, 24),
+                                              'Default', callback, self.group2,
+                                              background=C_DARK)
+        self.event_handlers.append(self.test_button)
+
         self.test_node = Node(NodeProperties(self.test_button, 200, 200))
 
         self.groups.append(self.group2)
@@ -61,6 +66,7 @@ class ExampleHandling(Scene):
             if event.type in interface.MOUSE_EVENTS:
                 for button in self.event_handlers:
                     button.mouse_event(event)
+        self.test_entry.events(pygame_events)
 
 
 class ExampleDetail(Scene):

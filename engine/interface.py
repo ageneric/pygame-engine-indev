@@ -49,7 +49,6 @@ class Button(SpriteNode):
         }
         self.style.update(kwargs)
 
-        self.visible = True  # True when visible. Button ignores input while invisible.
         self.state = Button.idle
         self.pre_render_text()
 
@@ -66,7 +65,7 @@ class Button(SpriteNode):
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
         # Only react to a click on mouse-up (helps avoid an accidental click).
-        if event.type == MOUSEBUTTONUP and self.state == Button.press:
+        if self.state == Button.press and event.type == MOUSEBUTTONUP:
             if mouse_over and self.callback:
                 self.on_click()
             self.state = Button.idle
@@ -90,7 +89,8 @@ class Button(SpriteNode):
             if self.background_image:
                 self.image.blit(self.background_image, (0, 0))
                 color = self.accent_color()
-                text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2), color=color, justify=True)
+                text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2),
+                          color=color, justify=True)
             else:
                 box_color = self.background_color()
                 color = self.accent_color()
@@ -114,10 +114,76 @@ class Button(SpriteNode):
 
 class TextEntry(SpriteNode):
     """A single line rectangular box that can be typed in."""
-    idle, selected = range(2)
+    idle, hover, selected, disabled = range(4)
 
-    def enter(self):
-        pass
+    def __init__(self, node_props, default_text="", enter_callback=None, group=None, **kwargs):
+        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
+        super(TextEntry, self).__init__(node_props, group, fill_color=fill_color)
+
+        self.enter_callback = enter_callback
+
+        self.state = TextEntry.idle
+        self.text = default_text
+
+    def on_enter(self):
+        self.enter_callback(self.text)
+        self.state = TextEntry.idle
+
+    def events(self, pygame_events):
+        if self.state == TextEntry.disabled or not self.visible:
+            return
+
+        for event in pygame_events:
+            last_state = self.state
+
+            if event.type in MOUSE_EVENTS:
+                mouse_over = self.rect.collidepoint(event.pos)
+
+                if mouse_over:
+                    if event.type == MOUSEBUTTONDOWN:
+                        self.state = TextEntry.selected
+                    elif self.state == TextEntry.idle:
+                        self.state = TextEntry.hover
+                elif self.state == TextEntry.hover or event.type == MOUSEBUTTONDOWN:
+                    self.state = TextEntry.idle
+
+            elif self.state == TextEntry.selected and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    if self.enter_callback:
+                        self.on_enter()
+                elif event.key == pygame.K_ESCAPE or event.key == pygame.K_TAB:
+                    self.state = TextEntry.idle
+                elif event.mod & pygame.KMOD_CTRL:
+                    if event.key == pygame.K_BACKSPACE:
+                        self.text = ''
+                        self.dirty = 1
+                elif event.key == pygame.K_BACKSPACE:
+                    self.text = self.text[:-1]
+                    self.dirty = 1
+                else:
+                    self.text += event.unicode
+                    self.dirty = 1
+
+            if last_state != self.state:
+                self.dirty = 1
+
+    def draw(self, surface):
+        super().draw(surface)
+        if self.visible and self.dirty:
+            if self.state == TextEntry.hover:
+                self.image.fill(modify_color(BACKGROUND_DEFAULT, -15))  # todo: use actual
+            else:
+                self.image.fill(BACKGROUND_DEFAULT)  # todo: use actual
+
+            if self.state == TextEntry.selected:
+                text_to_draw = self.text + '|'
+            else:
+                text_to_draw = self.text
+            text.draw(self.image, text_to_draw, (4, self.transform.height / 2),
+                      justify=(False, True))
 
 class Grid(SpriteNode):
     """A container for equally spaced UI items that draws them onto a buffer."""
+    def __init__(self, node_props, group=None, **kwargs):
+        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
+        super(Grid, self).__init__(node_props, group, fill_color=fill_color)

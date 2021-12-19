@@ -32,6 +32,8 @@ def main():
     surf = pg.Surface((display_width, display_height))
     surf_detail = pg.Surface((display_width, SURF_HEIGHT))
 
+    pg.key.set_repeat(500, 50)
+
     print('3/3 Starting: main loop')
     scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
 

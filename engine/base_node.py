@@ -27,10 +27,6 @@ class Transform:
     def from_rect(cls, rect, anchor_x=0, anchor_y=0, rotation=0):
         return cls(rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y, rotation)
 
-    # def __add__(self, other):
-    #     return LocalState(self.x + other.x, self.y + other.y, self.width, self.height,
-    #                            self.anchor_x, self.anchor_y)
-
     def rect(self):
         return pygame.Rect(int(self.x - self.width * self.anchor_x),
                            int(self.y - self.height * self.anchor_y), int(self.width), int(self.height))
@@ -63,11 +59,11 @@ class Transform:
 class Node:
     def __init__(self, node_props: NodeProperties):
         self.parent = node_props[0]
+        self.parent.add_child(self)
         self.transform = Transform(*node_props[1:-1])
         self._enabled = node_props[-1]
         # For each property in local_properties, set this on the node
         # self.__dict__.update(local_properties.__dict__)
-        self.parent.nodes.append(self)
         self.nodes = []
 
     def update(self):
@@ -88,6 +84,8 @@ class Node:
         if child in self.nodes:
             self.nodes.remove(child)
             child.parent = None
+        else:
+            print(f'Engine warning: could not remove child {child} as it could not be found.')
 
     def world_rect(self):
         if isinstance(self.parent, Node):
@@ -100,7 +98,8 @@ class Node:
         self.parent.remove_child(self)
 
         for i in range(len(self.nodes)):
-            child = self.nodes.pop(0)
+            child = self.nodes.pop()
+            print('del child', child)
             if child:
                 del child
 

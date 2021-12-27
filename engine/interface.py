@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP
 
-from .base_node import SpriteNode
+from .base_node import SpriteNode, NodeProperties
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
@@ -35,7 +35,7 @@ class Button(SpriteNode):
     """
     idle, hover, press, disabled = range(4)
 
-    def __init__(self, node_props, message="", callback=None, group=None, **kwargs):
+    def __init__(self, node_props, group, message="", callback=None, **kwargs):
         self.background_image = kwargs.get("image", None)
         fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
         super(Button, self).__init__(node_props, group, image=self.background_image,
@@ -113,10 +113,12 @@ class Button(SpriteNode):
         return self.style['color']
 
 class TextEntry(SpriteNode):
-    """A single line rectangular box that can be typed in."""
+    """A single line rectangular box that can be typed in.
+    Set allow_characters = '1234' or ['1', '2'] to only allow those characters."""
     idle, hover, selected, disabled = range(4)
 
-    def __init__(self, node_props, default_text="", enter_callback=None, group=None, **kwargs):
+    def __init__(self, node_props, group, default_text="", enter_callback=None,
+                 allow_characters=None, **kwargs):
         fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
         super(TextEntry, self).__init__(node_props, group, fill_color=fill_color)
 
@@ -124,18 +126,23 @@ class TextEntry(SpriteNode):
 
         self.state = TextEntry.idle
         self.text = default_text
+        self.allow_characters = allow_characters
 
     def on_enter(self):
         self.enter_callback(self.text)
         self.state = TextEntry.idle
 
+    def on_change(self):
+        pass
+
     def events(self, pygame_events):
         if self.state == TextEntry.disabled or not self.visible:
             return
 
-        for event in pygame_events:
-            last_state = self.state
+        last_state = self.state
+        last_text = self.text
 
+        for event in pygame_events:
             if event.type in MOUSE_EVENTS:
                 mouse_over = self.rect.collidepoint(event.pos)
 
@@ -156,16 +163,15 @@ class TextEntry(SpriteNode):
                 elif event.mod & pygame.KMOD_CTRL:
                     if event.key == pygame.K_BACKSPACE:
                         self.text = ''
-                        self.dirty = 1
                 elif event.key == pygame.K_BACKSPACE:
                     self.text = self.text[:-1]
-                    self.dirty = 1
-                else:
+                elif self.allow_characters is None or event.unicode in self.allow_characters:
                     self.text += event.unicode
-                    self.dirty = 1
 
-            if last_state != self.state:
-                self.dirty = 1
+        if last_state != self.state or last_text != self.text:
+            self.dirty = 1
+        if last_text != self.text:
+            self.on_change()
 
     def draw(self, surface):
         super().draw(surface)
@@ -184,6 +190,31 @@ class TextEntry(SpriteNode):
 
 class Grid(SpriteNode):
     """A container for equally spaced UI items that draws them onto a buffer."""
-    def __init__(self, node_props, group=None, **kwargs):
+    def __init__(self, node_props, group, node_generator, **kwargs):
         fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
         super(Grid, self).__init__(node_props, group, fill_color=fill_color)
+
+        self.grid_group = pygame.sprite.Group()
+        if fill_color:
+            self.grid_group.clear(self.image, fill_color)
+
+        self.spacing = 20
+        # TODO: allow vertical and horizontal and combined grids
+
+        for i, (inst_class, *args) in enumerate(node_generator()):
+            inst_class(NodeProperties(self, 0, i*self.spacing, self.transform.width, self.spacing), *args)
+        print([n.transform for n in self.nodes])
+
+    def add_child(self, child):
+        self.dirty = 1
+        super().add_child(child)
+
+    def remove_child(self, child):
+        self.dirty = 1
+        super().remove_child(child)
+
+    def draw(self, surface):
+        # override Node.draw()
+
+        if self.dirty:
+            self.grid_group.draw(self.image)

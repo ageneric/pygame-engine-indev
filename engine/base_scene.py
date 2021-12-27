@@ -33,6 +33,7 @@ class Scene:
 
     def add_child(self, node):
         self.nodes.append(node)
+        node.parent = self
 
     def remove_child(self, node):
         self.nodes.remove(node)

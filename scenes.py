@@ -18,22 +18,28 @@ class ExampleBlank(Scene):
         super().update()
         self.n.transform.x = self.n.transform.x + 1 % self.display_size_x
 
+def grid_example_generator():
+    for i in range(6):
+        yield Node,
+
 class ExampleHandling(Scene):
     """Demo interface components and event handling."""
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
         self.background = pygame.Surface(self.display_size)
-        self.background.fill((64, 0, 0))
+        # self.background.fill((64, 0, 0))
         self.group = pygame.sprite.LayeredDirty()
-
+        
         def callback():
             print('button click -> demo')
-
-        self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50),
-                                       'Demo clickable', callback, self.group, background=C_LIGHT)
+        def print_arguments(*args):
+            print(*args)
+        
+        self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.group,
+                                       'Demo clickable', callback, background=C_LIGHT)
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32),
-                                                 'Image clickable', self.toggle_button, self.group,
+        toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32), self.group,
+                                                 'Image clickable', self.toggle_button,
                                                  image=image)
         self.event_handlers.append(self.button)
         self.event_handlers.append(toggle_visible_button)
@@ -41,17 +47,16 @@ class ExampleHandling(Scene):
 
         self.group2 = pygame.sprite.LayeredDirty()
 
-        self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50),
-                                            'Second group clickable', callback, self.group2,
+        self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.group2,
+                                            'Second group clickable', callback,
                                             background=C_DARK)
         self.event_handlers.append(self.test_button)
 
-        self.test_entry = interface.TextEntry(NodeProperties(self, 125, 425, 350, 24),
-                                              'Default', callback, self.group2,
+        self.test_entry = interface.TextEntry(NodeProperties(self, 125, 425, 350, 20), self.group2,
+                                              'Default', callback, allow_characters='0123456789.',
                                               background=C_DARK)
-        self.event_handlers.append(self.test_button)
 
-        self.test_node = Node(NodeProperties(self.test_button, 200, 200))
+        self.test_grid = interface.Grid(NodeProperties(self, 200, 200, 200, 200), self.group, grid_example_generator, background=C_DARK)
 
         self.groups.append(self.group2)
         for group in self.groups:
@@ -91,7 +96,9 @@ class ExampleDetail(Scene):
         self.recent_frames_ms.append(rawtime)
         if len(self.recent_frames_ms) > FPS:
             self.recent_frames_ms.pop(0)
-
-        message = f'{rawtime}ms processing time / frame ({sum(self.recent_frames_ms)}ms / s)'
+            message = f'{rawtime}ms processing time / frame ({sum(self.recent_frames_ms)}ms / s)'
+        else:
+            message = f'{rawtime}ms processing time / frame'
+            
         text.draw(self.screen, message, (30, 5),
                   color=C_DARK_ISH, justify=(False, False))

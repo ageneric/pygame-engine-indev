@@ -190,19 +190,20 @@ class TextEntry(SpriteNode):
 
 class Grid(SpriteNode):
     """A container for equally spaced UI items that draws them onto a buffer."""
-    def __init__(self, node_props, group, node_generator, **kwargs):
+    def __init__(self, node_props, group, node_generator, horizontal=False, **kwargs):
         fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
         super(Grid, self).__init__(node_props, group, fill_color=fill_color)
 
         self.grid_group = pygame.sprite.Group()
-        if fill_color:
-            self.grid_group.clear(self.image, fill_color)
 
         self.spacing = 20
-        # TODO: allow vertical and horizontal and combined grids
 
         for i, (inst_class, *args) in enumerate(node_generator()):
-            inst_class(NodeProperties(self, 0, i*self.spacing, self.transform.width, self.spacing), *args)
+            if horizontal:
+                node_props = NodeProperties(self, 0, i*self.spacing, self.transform.width, self.spacing)
+            else:
+                node_props = NodeProperties(self, i*self.spacing, 0, self.spacing, self.transform.height)
+            inst_class(node_props, *args)
         print([n.transform for n in self.nodes])
 
     def add_child(self, child):
@@ -217,4 +218,5 @@ class Grid(SpriteNode):
         # override Node.draw()
 
         if self.dirty:
+            self.image.fill(BACKGROUND_DEFAULT)
             self.grid_group.draw(self.image)

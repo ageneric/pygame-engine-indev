@@ -58,12 +58,12 @@ class Transform:
 
 class Node:
     def __init__(self, node_props: NodeProperties):
-        self.parent = node_props[0]
-        self.parent.add_child(self)
+        if not hasattr(node_props[0], 'add_child'):
+            raise ValueError(f'Incorrect type for parent, NodeProperties[0]: found {node_props[0]}')
+        self.parent = node_props[0].add_child(self)
         self.transform = Transform(*node_props[1:-1])
         self._enabled = node_props[-1]
-        # For each property in local_properties, set this on the node
-        # self.__dict__.update(local_properties.__dict__)
+
         self.nodes = []
 
     def update(self):

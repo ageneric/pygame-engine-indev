@@ -37,6 +37,7 @@ class Scene:
 
     def remove_child(self, node):
         self.nodes.remove(node)
+        node.parent = None
         if node in self.event_handlers:
             self.event_handlers.remove(node)
 
@@ -59,4 +60,3 @@ class Scene:
     @property
     def display_size(self) -> (int, int):
         return self.screen.get_size()
-

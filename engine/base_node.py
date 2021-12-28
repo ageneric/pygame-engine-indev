@@ -60,7 +60,8 @@ class Node:
     def __init__(self, node_props: NodeProperties):
         if not hasattr(node_props[0], 'add_child'):
             raise ValueError(f'Incorrect type for parent, NodeProperties[0]: found {node_props[0]}')
-        self.parent = node_props[0].add_child(self)
+        self.parent = node_props[0]
+        self.parent.add_child(self)
         self.transform = Transform(*node_props[1:-1])
         self._enabled = node_props[-1]
 
@@ -95,11 +96,9 @@ class Node:
             return self.transform.rect()
 
     def __del__(self):
-        self.parent.remove_child(self)
-
+        self.parent = None
         for i in range(len(self.nodes)):
             child = self.nodes.pop()
-            print('del child', child)
             if child:
                 del child
 

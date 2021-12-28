@@ -1,32 +1,74 @@
 import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP
+from math import sqrt
 
 from .base_node import SpriteNode, NodeProperties
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
+
 COLOR_DEFAULT = (191, 131, 191)
 BACKGROUND_DEFAULT = (20, 20, 24)
+NO_VALUE = object()
 
-def modify_color_component(color_component, saturation):
-    """Lighten or darken an rgb value by the saturation percentage."""
-    color_component = round(color_component * (1 + saturation/100))
-    # Ensure value is between 0 - 255.
-    color_component = min(color_component, 255)
-    color_component = max(color_component, 0)
+def modify_color_component(color_component, brightness):
+    """Lighten or darken a single rgb value by the perceived brightness percentage."""
+    color_component = round(max(sqrt(color_component) + brightness/6.25, 0)**2)
+    color_component = min(max(color_component, 0), 255)  # clamp value between 0 and 255
     return color_component
 
-def modify_color(color, saturation):
-    """Lighten or darken an (r, g, b) colour by the saturation percentage."""
-    return tuple(modify_color_component(r_g_b, saturation) for r_g_b in color)
+def modify_color(color, brightness: float):
+    """Lighten or darken an (r, g, b) colour by the brightness percentage."""
+    return tuple(modify_color_component(r_g_b, brightness) for r_g_b in color)
 
-def specify_color(style, try_key, fallback_key, saturation=0.0):
-    """A customisable color that may be specified in style;
-    if not found, use the fallback color."""
-    color = style.get(try_key)
-    if color is None:  # Default if color cannot be found.
-        color = modify_color(style[fallback_key], saturation)
-    return color
+def saturate_color_component(color_component, mean, saturation):
+    color_component = round(mean * (1 - saturation) + color_component * saturation)
+    color_component = min(max(color_component, 0), 255)  # clamp value between 0 and 255
+    return color_component
+
+def saturate_color(color, saturation: float):
+    """Saturate or desaturate an (r, g, b) colour by a multiplier, where 0.0 = grayscale,
+    1.0 = no change, 2.0 = saturate further and -1.0 = invert color."""
+    mean = sum(r_g_b for r_g_b in color) / 3
+    return tuple(saturate_color_component(r_g_b, mean, saturation) for r_g_b in color)
+
+class Style:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+        print(self)
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    @classmethod
+    def from_kwargs(cls, kwargs):
+        if kwargs.get("style", False):
+            return kwargs.get("style")
+        else:
+            return cls(**kwargs)
+
+    def get(self, name: str, default=NO_VALUE):
+        if hasattr(self, name):
+            return getattr(self, name)
+        elif name == "color":
+            return COLOR_DEFAULT
+        elif name == "background":
+            return BACKGROUND_DEFAULT
+        elif name.endswith("_highlighted"):
+            base_name = name[:name.index("_")]
+            return modify_color(self.get(base_name), -5)
+        elif name.endswith("_selected"):
+            base_name = name[:name.index("_")]
+            return modify_color(self.get(base_name), 5)
+        elif name.endswith("_disabled"):
+            base_name = name[:name.index("_")]
+            return saturate_color(modify_color(self.get(base_name), -10), 0.25)
+        elif default is not NO_VALUE:
+            return default
+        raise KeyError("Not a key and not a modifier of a key")
+
+    def __index__(self, name: str, use_default=NO_VALUE):
+        return self.get(name, use_default)
 
 class Button(SpriteNode):
     """A button. The keyword arguments color and background change the appearance.
@@ -36,24 +78,25 @@ class Button(SpriteNode):
     idle, hover, press, disabled = range(4)
 
     def __init__(self, node_props, group, message="", callback=None, **kwargs):
-        self.background_image = kwargs.get("image", None)
-        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
-        super(Button, self).__init__(node_props, group, image=self.background_image,
-                                     fill_color=fill_color)
+        self.style = Style.from_kwargs(kwargs)
+        super(Button, self).__init__(node_props, group, image=kwargs.get("image", None),
+                                     fill_color=self.style.get("background"))
+
         self.callback = callback
         self.message = message
-
-        self.style = {
-            'color': COLOR_DEFAULT,
-            'background': (0, 0, 0)
-        }
-        self.style.update(kwargs)
 
         self.state = Button.idle
         self.pre_render_text()
 
+        self.background_colors_d = {
+            Button.hover: 'background_highlighted',
+            Button.press: 'background_selected',
+            Button.disabled: 'background_disabled'
+        }
+        self.colors_d = {Button.press: 'color_disabled'}
+
     def pre_render_text(self):
-        return text.render(self.message, color=self.style['color'], save_sprite=True)
+        return text.render(self.message, color=self.style.get('color'), save_sprite=True)
 
     def mouse_event(self, event):
         """Pass each pygame mouse event to the button,
@@ -86,31 +129,18 @@ class Button(SpriteNode):
 
     def draw(self, surface):
         if self.visible and self.dirty:
-            if self.background_image:
-                self.image.blit(self.background_image, (0, 0))
-                color = self.accent_color()
+            if self.style.get("image", False):
+                self.image.blit(self.style.get("image"), (0, 0))
+                color = self.style.get(self.colors_d.get(self.state, "color"))
                 text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2),
                           color=color, justify=True)
             else:
-                box_color = self.background_color()
-                color = self.accent_color()
+                box_color = self.style.get(self.background_colors_d.get(self.state, "background"))
+                color = self.style.get(self.colors_d.get(self.state, "color"))
 
                 text.box(self.image, self.message, (0, 0),
                          self.rect.width, self.rect.height, True, box_color, color=color)
 
-    def background_color(self):
-        if self.state == Button.hover:
-            return modify_color(self.style['background'], -14.4)
-        elif self.state == Button.press:
-            return modify_color(self.style['background'], 14.4)
-        elif self.state == Button.disabled:
-            return specify_color(self.style, 'background_disabled', 'background', -28.8)
-        return self.style['background']
-
-    def accent_color(self):
-        if self.state == Button.disabled:
-            return specify_color(self.style, 'color_disabled', 'color', -20)
-        return self.style['color']
 
 class TextEntry(SpriteNode):
     """A single line rectangular box that can be typed in.
@@ -119,8 +149,8 @@ class TextEntry(SpriteNode):
 
     def __init__(self, node_props, group, default_text="", enter_callback=None,
                  allow_characters=None, **kwargs):
-        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
-        super(TextEntry, self).__init__(node_props, group, fill_color=fill_color)
+        self.style = Style.from_kwargs(kwargs)
+        super(TextEntry, self).__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.enter_callback = enter_callback
 
@@ -177,9 +207,9 @@ class TextEntry(SpriteNode):
         super().draw(surface)
         if self.visible and self.dirty:
             if self.state == TextEntry.hover:
-                self.image.fill(modify_color(BACKGROUND_DEFAULT, -15))  # todo: use actual
+                self.image.fill(self.style.get("background_highlighted"))
             else:
-                self.image.fill(BACKGROUND_DEFAULT)  # todo: use actual
+                self.image.fill(self.style.get("background"))
 
             if self.state == TextEntry.selected:
                 text_to_draw = self.text + '|'
@@ -191,8 +221,8 @@ class TextEntry(SpriteNode):
 class Grid(SpriteNode):
     """A container for equally spaced UI items that draws them onto a buffer."""
     def __init__(self, node_props, group, node_generator, horizontal=False, **kwargs):
-        fill_color = kwargs.get("background", BACKGROUND_DEFAULT)
-        super(Grid, self).__init__(node_props, group, fill_color=fill_color)
+        self.style = Style.from_kwargs(kwargs)
+        super(Grid, self).__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.grid_group = pygame.sprite.Group()
 
@@ -204,19 +234,18 @@ class Grid(SpriteNode):
             else:
                 node_props = NodeProperties(self, i*self.spacing, 0, self.spacing, self.transform.height)
             inst_class(node_props, *args)
-        print([n.transform for n in self.nodes])
 
     def add_child(self, child):
-        self.dirty = 1
         super().add_child(child)
+        self.dirty = 1
 
     def remove_child(self, child):
-        self.dirty = 1
         super().remove_child(child)
+        self.dirty = 1
 
     def draw(self, surface):
-        # override Node.draw()
+        # overrides Node.draw()
 
         if self.dirty:
-            self.image.fill(BACKGROUND_DEFAULT)
+            self.image.fill(self.style.get("background"))
             self.grid_group.draw(self.image)

@@ -99,8 +99,7 @@ class Node:
         self.parent = None
         for i in range(len(self.nodes)):
             child = self.nodes.pop()
-            if child:
-                del child
+            del child
 
     @property
     def enabled(self):
@@ -130,12 +129,12 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
         self.rect = self.world_rect()
         print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
 
-        if image:
-            self.image = pygame.Surface(self.transform.size, 0, image)
-        else:
+        if image is None:
             self.image = pygame.Surface(self.transform.size)
-            if fill_color:
+            if fill_color is not None:
                 self.image.fill(fill_color)
+        else:
+            self.image = pygame.Surface(self.transform.size, 0, image)
 
     def update(self):
         Node.update(self)

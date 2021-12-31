@@ -16,7 +16,7 @@ class ExampleBlank(Scene):
 
     def update(self):
         super().update()
-        self.n.transform.x = self.n.transform.x + 1 % self.display_size_x
+        self.n.transform.x = self.n.transform.x + 1 % self.screen_size_x
 
 def grid_example_generator():
     for i in range(6):
@@ -26,41 +26,39 @@ class ExampleHandling(Scene):
     """Demo interface components and event handling."""
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        self.background = pygame.Surface(self.display_size)
-        # self.background.fill((64, 0, 0))
+        self.background_color = (64, 0, 0)
+        background_surf = pygame.Surface(self.screen_size)
+        self.background(background_surf)
         self.group = pygame.sprite.LayeredDirty()
+        self.group2 = pygame.sprite.LayeredDirty()
         
-        def callback():
-            print('button click -> demo')
-        def print_arguments(*args):
-            print(*args)
+        def demo_callback(*args):
+            print(f'demo callback -> {args}')
         
         self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.group,
-                                       'Demo clickable', callback, background=C_LIGHT)
+                                       'Demo clickable', demo_callback, background=C_LIGHT)
         image = pygame.image.load('Assets/Placeholder.png').convert()
         toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32), self.group,
                                                  'Image clickable', self.toggle_button,
                                                  image=image)
         self.event_handlers.append(self.button)
         self.event_handlers.append(toggle_visible_button)
-        self.groups.append(self.group)
-
-        self.group2 = pygame.sprite.LayeredDirty()
 
         self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.group2,
-                                            'Second group clickable', callback,
+                                            'Second group clickable', demo_callback,
                                             background=C_DARK)
         self.event_handlers.append(self.test_button)
 
         self.test_entry = interface.TextEntry(NodeProperties(self, 125, 425, 350, 20), self.group2,
-                                              'Default', callback, allow_characters='0123456789.',
+                                              'Default', demo_callback, allow_characters='0123456789.',
                                               background=C_DARK)
 
         self.test_grid = interface.Grid(NodeProperties(self, 200, 200, 200, 200), self.group, grid_example_generator, background=C_DARK)
 
+        self.groups.append(self.group)
         self.groups.append(self.group2)
         for group in self.groups:
-            group.clear(self.screen, self.background)
+            group.clear(self.screen, background_surf)  # TODO: all background clears should take place first
 
     def toggle_button(self):
         self.button.enabled = not self.button.enabled
@@ -79,7 +77,7 @@ class ExampleDetail(Scene):
         super().__init__(screen, clock)
         self.group = pygame.sprite.Group()
 
-        self.tree_tab = TreeTab(NodeProperties(self, 30, 20, self.display_size_x - 30, 125, enabled=False),
+        self.tree_tab = TreeTab(NodeProperties(self, 30, 20, self.screen_size_x - 30, 125, enabled=False),
                                 self.group, None)
 
         self.groups.append(self.group)

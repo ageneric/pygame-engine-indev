@@ -11,7 +11,8 @@ class Anchor:
     bottom = right = 1
 
 class Transform:
-    def __init__(self, x, y, width=0, height=0, anchor_x=0, anchor_y=0, rotation=0):
+    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, rotation=0.0):
+        self.is_modified = True
         self.x = x
         self.y = y
         self.width = width
@@ -31,29 +32,34 @@ class Transform:
         return pygame.Rect(int(self.x - self.width * self.anchor_x),
                            int(self.y - self.height * self.anchor_y), int(self.width), int(self.height))
 
+    def __setattr__(self, key, value):
+        object.__setattr__(self, key, value)
+        if not self.is_modified and key in ('x', 'y', 'width', 'height', 'rotation'):
+            object.__setattr__(self, 'is_modified', True)
+
     # Getters and setters for transform properties
     @property
-    def position(self):
+    def position(self) -> (float, float):
         return self.x, self.y
 
     @position.setter
-    def position(self, position_x_y):
+    def position(self, position_x_y: (float, float)):
         self.x, self.y = position_x_y
 
     @property
-    def size(self):
+    def size(self) -> (int, int):
         return self.width, self.height
 
     @size.setter
-    def size(self, width_height):
+    def size(self, width_height: (int, int)):
         self.width, self.height = width_height
 
     @property
-    def anchor(self):
-        return self.width, self.height
+    def anchor(self) -> (float, float):
+        return self.anchor_x, self.anchor_y
 
     @anchor.setter
-    def anchor(self, anchor_x_y):
+    def anchor(self, anchor_x_y: (float, float)):
         self.anchor_x, self.anchor_y = anchor_x_y
 
 class Node:
@@ -88,7 +94,7 @@ class Node:
         else:
             print(f'Engine warning: could not remove child {child} as it could not be found.')
 
-    def world_rect(self):
+    def world_rect(self) -> pygame.Rect:
         if isinstance(self.parent, Node):
             parent_rect = self.parent.world_rect()
             return self.transform.rect().move(parent_rect.x, parent_rect.y)
@@ -97,12 +103,12 @@ class Node:
 
     def __del__(self):
         self.parent = None
-        for i in range(len(self.nodes)):
-            child = self.nodes.pop()
-            del child
+        # Calls __del__() for each child node, and by recursion all nodes below it
+        # Equivalent to self.nodes.clear() but not del self.nodes
+        del self.nodes[:]
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self._enabled
 
     @enabled.setter
@@ -127,7 +133,7 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
         Node.__init__(self, node_props)
         self._visible = self.enabled
         self.rect = self.world_rect()
-        print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
+        # print(f'{self}, rect {self.rect}, parent {self.parent}, {self.groups()}')
 
         if image is None:
             self.image = pygame.Surface(self.transform.size)
@@ -138,15 +144,16 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
 
     def update(self):
         Node.update(self)
-        self.rect = self.world_rect()
+        if self.transform.is_modified:
+            self.transform.is_modified = False
+            self.rect = self.world_rect()
+            if self.dirty < 2:
+                self.dirty = 1
 
     def __del__(self):
-        print("del", self)
         pygame.sprite.Sprite.kill(self)
         Node.__del__(self)
 
     def cascade_set_visible(self, set_visible):
-        self.visible = set_visible and self._enabled
-
-        for child in self.nodes:
-            child.cascade_set_visible(set_visible)
+        Node.cascade_set_visible(self, set_visible)
+        self.visible = int(set_visible and self._enabled)

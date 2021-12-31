@@ -18,24 +18,26 @@ def modify_color_component(color_component, brightness):
     return color_component
 
 def modify_color(color, brightness: float):
-    """Lighten or darken an (r, g, b) colour by the brightness percentage."""
+    """Lighten or darken an (r, g, b) colour by the perceived brightness percentage."""
     return tuple(modify_color_component(r_g_b, brightness) for r_g_b in color)
 
 def saturate_color_component(color_component, mean, saturation):
+    """Saturate or desaturate a single rgb value by the given multiplier. See saturate_color()."""
     color_component = round(mean * (1 - saturation) + color_component * saturation)
     color_component = min(max(color_component, 0), 255)  # clamp value between 0 and 255
     return color_component
 
 def saturate_color(color, saturation: float):
-    """Saturate or desaturate an (r, g, b) colour by a multiplier, where 0.0 = grayscale,
-    1.0 = no change, 2.0 = saturate further and -1.0 = invert color."""
+    """Saturate or desaturate an (r, g, b) colour by the given multiplier, where
+    0: grayscale, 0-1: desaturated, 1: identical, >1: further saturated;
+    negative values result in the complementary color.
+    """
     mean = sum(r_g_b for r_g_b in color) / 3
     return tuple(saturate_color_component(r_g_b, mean, saturation) for r_g_b in color)
 
 class Style:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
-        print(self)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -54,21 +56,18 @@ class Style:
             return COLOR_DEFAULT
         elif name == "background":
             return BACKGROUND_DEFAULT
-        elif name.endswith("_highlighted"):
-            base_name = name[:name.index("_")]
-            return modify_color(self.get(base_name), -5)
-        elif name.endswith("_selected"):
-            base_name = name[:name.index("_")]
-            return modify_color(self.get(base_name), 5)
-        elif name.endswith("_disabled"):
-            base_name = name[:name.index("_")]
-            return saturate_color(modify_color(self.get(base_name), -10), 0.25)
+        elif name.count("_") == 1:
+            base_name, modifier = name.split("_", 1)
+            if modifier == "highlighted":
+                return modify_color(self.get(base_name), -5)
+            elif modifier == "selected":
+                return modify_color(self.get(base_name), 5)
+            elif modifier == "disabled":
+                return saturate_color(modify_color(self.get(base_name), -10), 0.25)
         elif default is not NO_VALUE:
             return default
         raise KeyError("Not a key and not a modifier of a key")
 
-    def __index__(self, name: str, use_default=NO_VALUE):
-        return self.get(name, use_default)
 
 class Button(SpriteNode):
     """A button. The keyword arguments color and background change the appearance.
@@ -79,8 +78,8 @@ class Button(SpriteNode):
 
     def __init__(self, node_props, group, message="", callback=None, **kwargs):
         self.style = Style.from_kwargs(kwargs)
-        super(Button, self).__init__(node_props, group, image=kwargs.get("image", None),
-                                     fill_color=self.style.get("background"))
+        super().__init__(node_props, group, image=kwargs.get("image", None),
+                         fill_color=self.style.get("background"))
 
         self.callback = callback
         self.message = message
@@ -93,7 +92,9 @@ class Button(SpriteNode):
             Button.press: 'background_selected',
             Button.disabled: 'background_disabled'
         }
-        self.colors_d = {Button.press: 'color_disabled'}
+        self.colors_d = {
+            Button.disabled: 'color_disabled'
+        }
 
     def pre_render_text(self):
         return text.render(self.message, color=self.style.get('color'), save_sprite=True)
@@ -150,7 +151,7 @@ class TextEntry(SpriteNode):
     def __init__(self, node_props, group, default_text="", enter_callback=None,
                  allow_characters=None, **kwargs):
         self.style = Style.from_kwargs(kwargs)
-        super(TextEntry, self).__init__(node_props, group, fill_color=self.style.get("background"))
+        super().__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.enter_callback = enter_callback
 
@@ -218,11 +219,12 @@ class TextEntry(SpriteNode):
             text.draw(self.image, text_to_draw, (4, self.transform.height / 2),
                       justify=(False, True))
 
+
 class Grid(SpriteNode):
     """A container for equally spaced UI items that draws them onto a buffer."""
     def __init__(self, node_props, group, node_generator, horizontal=False, **kwargs):
         self.style = Style.from_kwargs(kwargs)
-        super(Grid, self).__init__(node_props, group, fill_color=self.style.get("background"))
+        super().__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.grid_group = pygame.sprite.Group()
 
@@ -244,8 +246,6 @@ class Grid(SpriteNode):
         self.dirty = 1
 
     def draw(self, surface):
-        # overrides Node.draw()
-
         if self.dirty:
             self.image.fill(self.style.get("background"))
             self.grid_group.draw(self.image)

@@ -44,19 +44,25 @@ class Scene:
     def handle_events(self, pygame_events):
         pass
 
+    def background(self, surface):
+        """Fill the given surface with the color of self.background_color.
+        The method does nothing if self.background_color is not set."""
+        if hasattr(self, 'background_color'):
+            surface.fill(self.background_color)
+
     def change_scene(self, new_scene, *args):
         self.flag_new_scene = new_scene
         self.flag_new_scene_args = args
 
-    # Get current window size (for resizeable displays).
+    # Helper methods, to get the current window size
     @property
-    def display_size_x(self) -> int:
+    def screen_size_x(self) -> int:
         return self.screen.get_width()
 
     @property
-    def display_size_y(self) -> int:
+    def screen_size_y(self) -> int:
         return self.screen.get_height()
 
     @property
-    def display_size(self) -> (int, int):
+    def screen_size(self) -> (int, int):
         return self.screen.get_size()

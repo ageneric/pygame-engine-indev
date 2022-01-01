@@ -34,7 +34,7 @@ class Transform:
 
     def __setattr__(self, key, value):
         object.__setattr__(self, key, value)
-        if not self.is_modified and key in ('x', 'y', 'width', 'height', 'rotation'):
+        if not self.is_modified and key not in ('anchor', 'anchor_x', 'anchor_y'):
             object.__setattr__(self, 'is_modified', True)
 
     # Getters and setters for transform properties
@@ -65,23 +65,25 @@ class Transform:
 class Node:
     def __init__(self, node_props: NodeProperties):
         if not hasattr(node_props[0], 'add_child'):
-            raise ValueError(f'Incorrect type for parent, NodeProperties[0]: found {node_props[0]}')
+            raise AttributeError(f'Incorrect type for parent, NodeProperties[0] (got {node_props[0]})')
         self.parent = node_props[0]
         self.parent.add_child(self)
         self.transform = Transform(*node_props[1:-1])
-        self._enabled = node_props[-1]
+        self._enabled = node_props[8]
 
         self.nodes = []
 
     def update(self):
-        for child in self.nodes:
-            if child.enabled:
-                child.update()
+        if self.nodes:  # optimisation; check for leaf node (~0.9x time)
+            for child in self.nodes:
+                if child.enabled:
+                    child.update()
 
     def draw(self, surface):
-        for child in self.nodes:
-            if child.enabled:
-                child.draw(surface)
+        if self.nodes:  # optimisation; check for leaf node (~0.9x time)
+            for child in self.nodes:
+                if child.enabled:
+                    child.draw(surface)
 
     def add_child(self, child):
         self.nodes.append(child)
@@ -123,7 +125,7 @@ class Node:
 
 class SpriteNode(pygame.sprite.DirtySprite, Node):
     def __init__(self, node_props: NodeProperties, *groups, image=None, fill_color=None):
-        if isinstance(groups[0], pygame.sprite.AbstractGroup):
+        if groups and isinstance(groups[0], pygame.sprite.AbstractGroup):
             pygame.sprite.DirtySprite.__init__(self, *groups)
         else:
             print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.\n'
@@ -142,13 +144,13 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
         else:
             self.image = pygame.Surface(self.transform.size, 0, image)
 
-    def update(self):
-        Node.update(self)
+    def draw(self, surface):
         if self.transform.is_modified:
             self.transform.is_modified = False
-            self.rect = self.world_rect()
             if self.dirty < 2:
                 self.dirty = 1
+            self.rect = self.world_rect()
+        Node.draw(self, self.dirty)
 
     def __del__(self):
         pygame.sprite.Sprite.kill(self)
@@ -156,4 +158,4 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
 
     def cascade_set_visible(self, set_visible):
         Node.cascade_set_visible(self, set_visible)
-        self.visible = int(set_visible and self._enabled)
+        self._visible = int(set_visible and self._enabled)

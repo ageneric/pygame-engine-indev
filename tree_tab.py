@@ -1,40 +1,113 @@
 import pygame
 import engine.text
-from engine.base_node import Node, SpriteNode, Transform
-from constants import C_LIGHT, C_DARK, C_RED, C_LIGHT_ISH, C_DARK_ISH
-from collections import namedtuple
+from engine.interface import Grid
 
-TreeEntry = namedtuple('TreeEntry', ['nodes', 'node_uid', 'enabled', 'visible', 'tree_image'])
+class TreeEntry:
+    def __init__(self, node_props, reference):
+        if hasattr(reference, 'visible'):
+            self.reference_visible = reference.visible
+        else:
+            self.reference_visible = -1
+        self.reference_id = id(reference)
+        self.reference_enabled = reference.enabled
+        self.image = pygame.Surface((node_props[3], node_props[4]))
 
-class TreeTab(SpriteNode):
-    def __init__(self, node_props, group=None, ref=None):
-        super(TreeTab, self).__init__(node_props, group, fill_color=C_LIGHT_ISH)
-        self.ref = ref
+class TreeTabGrid(Grid):
+    def __init__(self, node_props, group, tree, **kwargs):
+        super().__init__(node_props, group, **kwargs)
+        self.tree = tree
+        self.copy_list = []
+        self.get_copy_list(self.tree)
 
-    def draw(self, screen):
-        if self.dirty and self.ref is not None and self.visible:
-            self.image.fill(C_LIGHT_ISH)
-            self.recursive_draw(self.ref)
+    def get_copy_list(self, tree, depth=0):
+        for node in tree.nodes:
+            self.make_copy_list_entry(node, depth)
+            self.get_copy_list(node, depth + 1)
 
-    def recursive_draw(self, target, level=0, flat_index=0):
-        start = flat_index
-        for child in target:
-            if isinstance(child, SpriteNode):
-                symbol = 's'
-            elif isinstance(child, Node):
-                symbol = 'n'
+    def make_copy_list_entry(self, reference_node, depth):
+        spacing = self.style.get('spacing', 20)
+        if self.horizontal:
+            node_props = (None, 0, 0, spacing, self.transform.height)
+        else:
+            node_props = (None, 0, 0, self.transform.width, spacing)
+        entry = TreeEntry(node_props, reference_node)
+        self.redraw_entry(entry, depth)
+        self.copy_list.append(entry)
+
+    def update(self):
+        self.traverse_tree(self.tree)
+
+    def traverse_tree(self, tree, index=0, depth=0):
+        for node in tree.nodes:
+            self.find_node_in_list(node, index, depth)
+            if node.nodes:
+                index = self.traverse_tree(node, index + 1, depth + 1)
             else:
-                symbol = '?'
+                index += 1
+        return index
 
-            message = ' '.join((str(type(child)).lstrip('<class ').rstrip('>'), str(child.transform)))
-            state = ('e' if child.enabled else '') + ('v' if getattr(child, 'visible', False) else '')
+    def find_node_in_list(self, node, index, depth):
+        len_copy_list = len(self.copy_list)
+        copy_node = None
+        if index < len_copy_list:
+            copy_node = self.copy_list[index]
 
-            if getattr(child, 'message', False):
-                message = repr(getattr(child, 'message')) + ' ' + message
+        node_visible = getattr(node, 'visible', -1)
+        node_enabled = getattr(node, 'enabled', - 1)
+        node_id = id(node)
+        start_index = index
+        found_node = False
 
-            engine.text.draw(self.image, symbol, (level*18, flat_index*18), color=C_RED, static=True)
-            engine.text.draw(self.image, state, (level*18 + 9, flat_index*18), color=C_DARK_ISH, static=True)
-            engine.text.draw(self.image, message, (level*18 + 27, flat_index*18), color=C_DARK)
-            flat_index += 1
-            flat_index += self.recursive_draw(child.nodes, level + 1, flat_index)
-        return flat_index - start
+        while not found_node and index < len_copy_list:
+            if node_id == copy_node.reference_id:
+                if (node_enabled != copy_node.reference_enabled
+                        or node_visible != copy_node.reference_visible):
+                    copy_node.reference_enabled = node_enabled
+                    copy_node.reference_visible = node_visible
+                    self.redraw_entry(copy_node, depth)
+                found_node = True  # exit loop
+            else:
+                index += 1
+
+        # Node could not be found in list, it must be new. Create it in list
+        if index >= len_copy_list:
+            assert not found_node
+            print('make')
+            self.make_copy_list_entry(node, depth)
+
+        # Did we skip over any nodes in list? Delete those as they are no longer in tree
+        elif start_index - index > 0:
+            print('del')
+            del self.copy_list[start_index:index]
+
+    def draw(self, surface):
+        # Intentionally omit super().draw(): do not call draw on children
+        if not self.dirty:
+            return
+
+        self.image.fill(self.style.get('background'))
+        spacing = self.style.get('spacing', 20)
+
+        for i, copy_node in enumerate(self.copy_list):
+            if self.horizontal:
+                destination = pygame.Rect(i*spacing, 0, spacing, self.transform.height)
+            else:
+                destination = pygame.Rect(0, i*spacing, self.transform.width, spacing)
+
+            if (-spacing < destination.left < self.transform.width
+                    and -spacing < destination.top < self.transform.height):
+                self.image.blit(copy_node.image, destination)
+            else:
+                return
+
+    def redraw_entry(self, entry, depth):
+        entry.image.fill(self.style.get('background'))
+        if entry.reference_visible >= 0:
+            symbol = 's'
+        else:
+            symbol = 'n'
+
+        state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
+        engine.text.draw(entry.image, symbol + ' ' + state, (depth*8, 0), color=self.style.get('color'))
+        engine.text.draw(entry.image, hex(entry.reference_id), (depth*8 + 32, 0), color=self.style.get('color_dim', self.style.get('color')))
+        self.dirty = 1

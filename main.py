@@ -15,7 +15,7 @@ def initialise_scenes(surf, surf_detail, first_scene_name, detail_scene_name):
     print(f'Initialising scenes ({first_scene_name}, {detail_scene_name})')
     scene = getattr(scenes, first_scene_name)(surf, clock)
     scene_detail = getattr(scenes, detail_scene_name)(surf_detail, clock)
-    scene_detail.set_ref(scene.nodes)
+    scene_detail.set_ref(scene)
     return scene, scene_detail
 
 def main():
@@ -64,7 +64,7 @@ def main():
 
         # Update scene and display --
         scene.update()
-        scene.draw()
+        rects = scene.draw()
 
         # Update detail surf --
         scene_detail.update()
@@ -73,8 +73,8 @@ def main():
         screen.blit(surf, (0, 0))
         screen.blit(surf_detail, (0, surf.get_height()))
 
-        pg.display.flip()
-        # pg.display.update(rects)
+        rects.append(pg.Rect(0, surf.get_height(), display_width, SURF_HEIGHT))
+        pg.display.update(rects)
 
         clock.tick(FPS)
 

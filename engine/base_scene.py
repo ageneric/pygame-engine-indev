@@ -1,3 +1,5 @@
+import pygame
+
 class Scene:
     """Each scene manages the screen, updated and drawn
     once per frame. To switch scene, the new scene flag
@@ -8,10 +10,12 @@ class Scene:
         self.clock = clock
 
         self.nodes = []
+        self.draw_group = None
         self.groups = []
         self.flag_new_scene = None
         self.flag_new_scene_args = []
-        self.event_handlers = []
+        self.background_color = None
+        self.mouse_handlers = []
 
     def update(self):
         for child in self.nodes:
@@ -19,13 +23,12 @@ class Scene:
                 child.update()
 
     def draw(self):
-        # TODO: screen fill default?
         for child in self.nodes:
             if child.enabled:
-                child.draw(self.screen)
+                child.draw(0)
 
-        for group in self.groups:
-            group.draw(self.screen)
+        if self.draw_group is not None:
+            return self.draw_group.draw(self.screen)
 
     def add_named_child(self, name: str, node):
         setattr(self, name, node)
@@ -38,17 +41,23 @@ class Scene:
     def remove_child(self, node):
         self.nodes.remove(node)
         node.parent = None
-        if node in self.event_handlers:
-            self.event_handlers.remove(node)
+        if node in self.mouse_handlers:
+            self.mouse_handlers.remove(node)
 
     def handle_events(self, pygame_events):
         pass
 
-    def background(self, surface):
-        """Fill the given surface with the color of self.background_color.
-        The method does nothing if self.background_color is not set."""
-        if hasattr(self, 'background_color'):
-            surface.fill(self.background_color)
+    def create_draw_group(self, background_color):
+        """Sets self.draw_group to a new LayeredDirty group and fills
+        the background surface with the given color.
+        Set background_color to None for a transparent background."""
+        self.background_color = background_color
+        background_surf = pygame.Surface(self.screen_size)
+        if self.background_color is not None:
+            background_surf.fill(self.background_color)
+        self.draw_group = pygame.sprite.LayeredDirty()
+        self.draw_group.clear(self.screen, background_surf)
+        self.groups.append(self.draw_group)
 
     def change_scene(self, new_scene, *args):
         self.flag_new_scene = new_scene

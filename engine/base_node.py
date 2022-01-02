@@ -158,4 +158,4 @@ class SpriteNode(pygame.sprite.DirtySprite, Node):
 
     def cascade_set_visible(self, set_visible):
         Node.cascade_set_visible(self, set_visible)
-        self._visible = int(set_visible and self._enabled)
+        self.visible = int(set_visible and self._enabled)

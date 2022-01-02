@@ -1,8 +1,8 @@
 import pygame
-from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP
+from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, Rect
 from math import sqrt
 
-from .base_node import SpriteNode, NodeProperties
+from .base_node import SpriteNode, NodeProperties, Transform
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
@@ -37,10 +37,11 @@ def saturate_color(color, saturation: float):
 
 class Style:
     def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+        self.dict = {'color': COLOR_DEFAULT, 'background': BACKGROUND_DEFAULT}
+        self.dict.update(kwargs)
 
-    def __repr__(self):
-        return str(self.__dict__)
+    # def __repr__(self):
+    #     return str(self.__dict__)
 
     @classmethod
     def from_kwargs(cls, kwargs):
@@ -50,12 +51,8 @@ class Style:
             return cls(**kwargs)
 
     def get(self, name: str, default=NO_VALUE):
-        if hasattr(self, name):
-            return getattr(self, name)
-        elif name == "color":
-            return COLOR_DEFAULT
-        elif name == "background":
-            return BACKGROUND_DEFAULT
+        if name in self.dict:
+            return self.dict[name]
         elif name.count("_") == 1:
             base_name, modifier = name.split("_", 1)
             if modifier == "highlighted":
@@ -64,9 +61,9 @@ class Style:
                 return modify_color(self.get(base_name), 5)
             elif modifier == "disabled":
                 return saturate_color(modify_color(self.get(base_name), -10), 0.25)
-        elif default is not NO_VALUE:
+        if default != NO_VALUE:
             return default
-        raise KeyError("Not a key and not a modifier of a key")
+        raise KeyError(f"Not a key and not a modifier of a key: {name} in {self.dict}")
 
 
 class Button(SpriteNode):
@@ -104,7 +101,7 @@ class Button(SpriteNode):
         so it can update (i.e. if hovered or clicked).
         For speed, only call if `event.type in MOUSE_EVENTS`.
         """
-        if self.state == Button.disabled or not self.visible:
+        if self.state == Button.disabled or not self._visible:
             return
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
@@ -129,7 +126,8 @@ class Button(SpriteNode):
         self.callback()
 
     def draw(self, surface):
-        if self.visible and self.dirty:
+        super().draw(surface)
+        if self._visible and self.dirty > 0:
             if self.style.get("image", False):
                 self.image.blit(self.style.get("image"), (0, 0))
                 color = self.style.get(self.colors_d.get(self.state, "color"))
@@ -167,7 +165,7 @@ class TextEntry(SpriteNode):
         pass
 
     def events(self, pygame_events):
-        if self.state == TextEntry.disabled or not self.visible:
+        if self.state == TextEntry.disabled or not self._visible:
             return
 
         last_state = self.state
@@ -206,7 +204,7 @@ class TextEntry(SpriteNode):
 
     def draw(self, surface):
         super().draw(surface)
-        if self.visible and self.dirty:
+        if self._visible and self.dirty > 0:
             if self.state == TextEntry.hover:
                 self.image.fill(self.style.get("background_highlighted"))
             else:
@@ -221,21 +219,57 @@ class TextEntry(SpriteNode):
 
 
 class Grid(SpriteNode):
-    """A container for equally spaced UI items that draws them onto a buffer."""
-    def __init__(self, node_props, group, node_generator, horizontal=False, **kwargs):
+    """A container for equally spaced items that draws them onto a buffer.
+    The default grid ignores the position attributes on each tile and instead
+    spaces them in order. For optimised use."""
+    def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
         self.style = Style.from_kwargs(kwargs)
         super().__init__(node_props, group, fill_color=self.style.get("background"))
 
-        self.grid_group = pygame.sprite.Group()
+        self.horizontal = horizontal
+        if initial_nodes_gen is not None:
+            self.generate_grid(initial_nodes_gen)
+            # Check the first node for methods and assume they are all identical
+            t_node = self.nodes[0]
+            self.call_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
+            self.call_update_method = hasattr(t_node, 'update') and callable(t_node.update)
+        else:
+            # Assume the next nodes will have a draw and update method
+            self.call_draw_method = self.call_update_method = True
 
-        self.spacing = 20
+    def generate_grid(self, initial_nodes_gen):
+        for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
+            self.nodes.append(inst_class(*args, **kwargs))
 
-        for i, (inst_class, *args) in enumerate(node_generator()):
-            if horizontal:
-                node_props = NodeProperties(self, 0, i*self.spacing, self.transform.width, self.spacing)
-            else:
-                node_props = NodeProperties(self, i*self.spacing, 0, self.spacing, self.transform.height)
-            inst_class(node_props, *args)
+    def update(self):
+        if self.call_update_method:
+            for tile in self.nodes:
+                tile.update()
+
+    def draw(self, surface):
+        if self.call_draw_method:
+            for tile in self.nodes:
+                tile.draw()
+
+        if self._visible and self.dirty > 0:
+            self.image.fill(self.style.get("background"))
+            for i, tile in enumerate(self.nodes):
+                if hasattr(tile, 'image'):
+                    tile.image.blit(self.image, self.index_to_position(i))
+
+    def index_to_position(self, index):
+        spacing = self.style.get('spacing', 20)
+        if self.horizontal:
+            return index*spacing, 0, spacing, self.transform.height
+        else:
+            return 0, index*spacing, self.transform.width, spacing
+
+    def position_to_index(self, position_x_y: (float, float)) -> int:
+        spacing = self.style.get('spacing', 20)
+        if self.horizontal:
+            return position_x_y[0] // spacing
+        else:
+            return position_x_y[1] // spacing
 
     def add_child(self, child):
         super().add_child(child)
@@ -245,7 +279,35 @@ class Grid(SpriteNode):
         super().remove_child(child)
         self.dirty = 1
 
+class SpriteGrid(Grid):
+    """A container for equally spaced UI items that draws them onto a buffer."""
+    def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
+        super().__init__(node_props, group, initial_nodes_gen, horizontal, **kwargs)
+        self.grid_group = pygame.sprite.Group()
+        self.grid_group.add(self.nodes)
+
+    def generate_grid(self, initial_nodes_gen):
+        for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
+            node_props = NodeProperties(self, *self.index_to_position(i))
+            inst_class(node_props, *args, **kwargs)
+
     def draw(self, surface):
-        if self.dirty:
+        if self.call_draw_method:
+            for tile in self.nodes:
+                tile.draw(surface)
+
+        if self._visible and self.dirty > 0:
             self.image.fill(self.style.get("background"))
+            wr = self.world_rect()
+            for i, tile in enumerate(self.nodes):
+                correct_rect = Rect(*self.index_to_position(i)).move(-wr.x, -wr.y)
+                if tile.transform.rect() != correct_rect:
+                    tile.transform.position = correct_rect.topleft
+                    tile.transform.size = correct_rect.size
+                    tile.dirty = True
             self.grid_group.draw(self.image)
+
+        if self._visible and self.dirty > 0:
+            for i, tile in enumerate(self.nodes):
+                if hasattr(tile, 'image'):
+                    self.image.blit(tile.image, self.index_to_position(i))

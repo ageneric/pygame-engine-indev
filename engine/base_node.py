@@ -34,7 +34,7 @@ class Transform:
         return pygame.Rect(int(self.x - self.width * self.anchor_x),
                            int(self.y - self.height * self.anchor_y), self.width, self.height)
 
-    def __setattr__(self, name, val):  # TODO: this can be replaced with many properties
+    def __setattr__(self, name, val):  # may alternatively be achieved using properties
         object.__setattr__(self, name, val)
         if hasattr(self, 'node') and name not in ('anchor_x', 'anchor_y', 'anchor', 'node'):
             self.node.transform_on_update()

@@ -22,7 +22,9 @@ def modify_color(color, brightness: float):
     return tuple(modify_color_component(r_g_b, brightness) for r_g_b in color)
 
 def saturate_color_component(color_component, mean, saturation):
-    """Saturate or desaturate a single rgb value by the given multiplier. See saturate_color()."""
+    """Saturate or desaturate a single rgb value by the given multiplier, where
+    0: grayscale, 0-1: desaturated, 1: identical, >1: further saturated;
+    negative values result in the complementary color."""
     color_component = round(mean * (1 - saturation) + color_component * saturation)
     color_component = min(max(color_component, 0), 255)  # clamp value between 0 and 255
     return color_component
@@ -69,7 +71,8 @@ class Style:
 class Button(SpriteNode):
     """A button. The keyword arguments color and background change the appearance.
     The argument callback is a function taking no parameters. It is called on click.
-    To add parameters to the callback, it is recommended to inherit from this class.
+    To add parameters to the callback or take additional styles,
+    it is recommended to inherit from this class.
     """
     idle, hover, press, disabled = range(4)
 
@@ -143,26 +146,35 @@ class Button(SpriteNode):
 
 class TextEntry(SpriteNode):
     """A single line rectangular box that can be typed in.
-    Set allow_characters = '1234' or ['1', '2'] to only allow those characters."""
+    The keyword arguments color and background change the appearance.
+    The arguments enter_callback(text) and edit_callback(text) are functions
+    called when editing is completed and when the text changes, respectively.
+    To add more parameters to the callback or take additional styles,
+    it is recommended to inherit from this class.
+    Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
+    """
     idle, hover, selected, disabled = range(4)
 
     def __init__(self, node_props, group, default_text="", enter_callback=None,
-                 allow_characters=None, **kwargs):
+                 edit_callback=None, allow_characters=None, **kwargs):
         self.style = Style.from_kwargs(kwargs)
         super().__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.enter_callback = enter_callback
+        self.edit_callback = edit_callback
 
         self.state = TextEntry.idle
         self.text = default_text
         self.allow_characters = allow_characters
 
     def on_enter(self):
-        self.enter_callback(self.text)
+        if self.enter_callback is not None:
+            self.enter_callback(self.text)
         self.state = TextEntry.idle
 
-    def on_change(self):
-        pass
+    def on_edit(self):
+        if self.edit_callback is not None:
+            self.edit_callback(self.text)
 
     def events(self, pygame_events):
         if self.state == TextEntry.disabled or not self._visible:
@@ -200,7 +212,7 @@ class TextEntry(SpriteNode):
         if last_state != self.state or last_text != self.text:
             self.dirty = 1
         if last_text != self.text:
-            self.on_change()
+            self.on_edit()
 
     def draw(self):
         super().draw()
@@ -219,9 +231,15 @@ class TextEntry(SpriteNode):
 
 
 class Grid(SpriteNode):
-    """A container for equally spaced items that draws them onto a buffer.
-    The default grid ignores the position attributes on each tile and instead
-    spaces them in order. For optimised use."""
+    """A container for equally spaced tiles that draws them onto a buffer.
+    The default grid ignores the position/size attributes on each tile, if any,
+    instead drawing them in a vertical or horizontal (if horizontal=True) grid.
+    The argument initial_nodes_gen specifies the initial tiles as a list of
+    (class, *args, {**kwargs}) -> class(*args, **kwargs). Each item is one tile.
+    If tiles have draw() or update() methods, they will be called only if
+    initial tiles of its type are supplied. Alternatively, set the properties
+    self.use_draw_method or self.use_update_method = True by subclassing Grid.
+    The keyword arguments spacing and background change the appearance."""
     def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
         self.style = Style.from_kwargs(kwargs)
         super().__init__(node_props, group, fill_color=self.style.get("background"))
@@ -278,8 +296,8 @@ class Grid(SpriteNode):
         super().remove_child(child)
         self.dirty = 1
 
-    def cascade_move_rect(self, set_rect):
-        self.rect = set_rect.move(self.transform.x, self.transform.y)
+    def cascade_move_rect(self, dx, dy):
+        self.rect.move_ip(dx, dy)
 
     def cascade_set_visible(self, set_visible):
         visible = set_visible and self.enabled
@@ -287,11 +305,17 @@ class Grid(SpriteNode):
             self.dirty = self._visible = visible
 
 class SpriteGrid(Grid):
-    """A container for equally spaced UI items that draws them onto a buffer."""
+    """A container for equally spaced SpriteNodes that draws them onto a buffer.
+    By default, the update() and draw() methods are called. To avoid this, set
+    self.use_update_method and self.use_draw_method = False by subclassing SpriteGrid.
+    The argument initial_nodes_gen specifies the initial sprites as a list of
+    (class, *args, {**kwargs}) -> class(node_props, grid_group, *args, **kwargs).
+    Each item is one tile and the group is a Group rather than LayeredDirty.
+    """
     def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
         self.grid_group = pygame.sprite.Group()
         super().__init__(node_props, group, initial_nodes_gen, horizontal, **kwargs)
-        self.use_update_method = self.call_draw_method = True
+        self.use_update_method = self.use_draw_method = True
 
     def generate_grid(self, initial_nodes_gen):
         for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
@@ -300,7 +324,7 @@ class SpriteGrid(Grid):
 
     def draw(self):
         if self._visible and self.dirty > 0:
-            if self.call_draw_method:
+            if self.use_draw_method:
                 for tile in self.nodes:
                     tile.draw()
 

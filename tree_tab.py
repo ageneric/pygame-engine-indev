@@ -1,5 +1,6 @@
 import pygame
 import engine.text
+from engine.base_node import SpriteNode
 from engine.interface import Grid
 
 class TreeEntry:
@@ -16,9 +17,8 @@ class TreeTabGrid(Grid):
     def __init__(self, node_props, group, tree, **kwargs):
         super().__init__(node_props, group, **kwargs)
         self.tree = tree
-        self.copy_list = []
+        self.copy_list = self.nodes  # alias
         self.get_copy_list(self.tree)
-        self.nodes = self.copy_list  # alias
 
     def get_copy_list(self, tree, depth=0):
         for node in tree.nodes:
@@ -92,3 +92,6 @@ class TreeTabGrid(Grid):
         engine.text.draw(entry.image, symbol + ' ' + state, (depth*8, 0), color=self.style.get('color'))
         engine.text.draw(entry.image, hex(entry.reference_id), (depth*8 + 32, 0), color=self.style.get('color_dim', self.style.get('color')))
         self.dirty = 1
+
+class TreeTab(SpriteNode):
+    pass

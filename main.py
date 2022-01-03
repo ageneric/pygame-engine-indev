@@ -20,7 +20,7 @@ def initialise_scenes(surf, surf_detail, first_scene_name, detail_scene_name):
 
 def main():
     SURF_HEIGHT = 150
-    FIRST_SCENE_NAME = 'ExampleTree'
+    FIRST_SCENE_NAME = 'ExampleHandling'
     DETAIL_SCENE_NAME = 'ExampleDetail'
     
     print(f'2/3 Starting: screen resolution {display_width}, {display_height}')

@@ -18,6 +18,7 @@ class TreeTabGrid(Grid):
         self.tree = tree
         self.copy_list = []
         self.get_copy_list(self.tree)
+        self.nodes = self.copy_list  # alias
 
     def get_copy_list(self, tree, depth=0):
         for node in tree.nodes:
@@ -79,26 +80,6 @@ class TreeTabGrid(Grid):
         elif start_index - index > 0:
             print('del')
             del self.copy_list[start_index:index]
-
-    def draw(self, surface):
-        # Intentionally omit super().draw(): do not call draw on children
-        if not self.dirty:
-            return
-
-        self.image.fill(self.style.get('background'))
-        spacing = self.style.get('spacing', 20)
-
-        for i, copy_node in enumerate(self.copy_list):
-            if self.horizontal:
-                destination = pygame.Rect(i*spacing, 0, spacing, self.transform.height)
-            else:
-                destination = pygame.Rect(0, i*spacing, self.transform.width, spacing)
-
-            if (-spacing < destination.left < self.transform.width
-                    and -spacing < destination.top < self.transform.height):
-                self.image.blit(copy_node.image, destination)
-            else:
-                return
 
     def redraw_entry(self, entry, depth):
         entry.image.fill(self.style.get('background'))

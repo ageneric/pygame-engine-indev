@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, Rect
 from math import sqrt
 
-from .base_node import SpriteNode, NodeProperties, Transform
+from .base_node import SpriteNode, NodeProperties
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
@@ -125,8 +125,8 @@ class Button(SpriteNode):
     def on_click(self):
         self.callback()
 
-    def draw(self, surface):
-        super().draw(surface)
+    def draw(self):
+        super().draw()
         if self._visible and self.dirty > 0:
             if self.style.get("image", False):
                 self.image.blit(self.style.get("image"), (0, 0))
@@ -202,8 +202,8 @@ class TextEntry(SpriteNode):
         if last_text != self.text:
             self.on_change()
 
-    def draw(self, surface):
-        super().draw(surface)
+    def draw(self):
+        super().draw()
         if self._visible and self.dirty > 0:
             if self.state == TextEntry.hover:
                 self.image.fill(self.style.get("background_highlighted"))
@@ -231,31 +231,30 @@ class Grid(SpriteNode):
             self.generate_grid(initial_nodes_gen)
             # Check the first node for methods and assume they are all identical
             t_node = self.nodes[0]
-            self.call_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
-            self.call_update_method = hasattr(t_node, 'update') and callable(t_node.update)
+            self.use_update_method = hasattr(t_node, 'update') and callable(t_node.update)
+            self.use_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
         else:
-            # Assume the next nodes will have a draw and update method
-            self.call_draw_method = self.call_update_method = True
+            self.use_update_method = self.use_draw_method = False
 
     def generate_grid(self, initial_nodes_gen):
         for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
             self.nodes.append(inst_class(*args, **kwargs))
 
     def update(self):
-        if self.call_update_method:
+        if self.use_update_method:
             for tile in self.nodes:
                 tile.update()
 
-    def draw(self, surface):
-        if self.call_draw_method:
-            for tile in self.nodes:
-                tile.draw()
-
+    def draw(self):
         if self._visible and self.dirty > 0:
+            if self.use_draw_method:
+                for tile in self.nodes:
+                    tile.draw()
+
             self.image.fill(self.style.get("background"))
             for i, tile in enumerate(self.nodes):
                 if hasattr(tile, 'image'):
-                    tile.image.blit(self.image, self.index_to_position(i))
+                    self.image.blit(tile.image, self.index_to_position(i))
 
     def index_to_position(self, index):
         spacing = self.style.get('spacing', 20)
@@ -279,24 +278,32 @@ class Grid(SpriteNode):
         super().remove_child(child)
         self.dirty = 1
 
+    def cascade_move_rect(self, set_rect):
+        self.rect = set_rect.move(self.transform.x, self.transform.y)
+
+    def cascade_set_visible(self, set_visible):
+        visible = set_visible and self.enabled
+        if visible != self._visible:
+            self.dirty = self._visible = visible
+
 class SpriteGrid(Grid):
     """A container for equally spaced UI items that draws them onto a buffer."""
     def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
-        super().__init__(node_props, group, initial_nodes_gen, horizontal, **kwargs)
         self.grid_group = pygame.sprite.Group()
-        self.grid_group.add(self.nodes)
+        super().__init__(node_props, group, initial_nodes_gen, horizontal, **kwargs)
+        self.use_update_method = self.call_draw_method = True
 
     def generate_grid(self, initial_nodes_gen):
         for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
             node_props = NodeProperties(self, *self.index_to_position(i))
-            inst_class(node_props, *args, **kwargs)
+            inst_class(node_props, self.grid_group, *args, **kwargs)
 
-    def draw(self, surface):
-        if self.call_draw_method:
-            for tile in self.nodes:
-                tile.draw(surface)
-
+    def draw(self):
         if self._visible and self.dirty > 0:
+            if self.call_draw_method:
+                for tile in self.nodes:
+                    tile.draw()
+
             self.image.fill(self.style.get("background"))
             wr = self.world_rect()
             for i, tile in enumerate(self.nodes):

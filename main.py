@@ -20,7 +20,7 @@ def initialise_scenes(surf, surf_detail, first_scene_name, detail_scene_name):
 
 def main():
     SURF_HEIGHT = 150
-    FIRST_SCENE_NAME = 'ExampleHandling'
+    FIRST_SCENE_NAME = 'ExampleTree'
     DETAIL_SCENE_NAME = 'ExampleDetail'
     
     print(f'2/3 Starting: screen resolution {display_width}, {display_height}')
@@ -58,14 +58,12 @@ def main():
                         scene, scene_detail = initialise_scenes(surf, surf_detail, FIRST_SCENE_NAME, DETAIL_SCENE_NAME)
                     elif event.key == pg.K_TAB:
                         # Tab: toggle the tree tab refresh (temporary)
-                        pg.draw.rect(scene_detail.tree_tab.image, (0, 0, 0), (0, 8, 8, 8))
                         scene_detail.tree_tab.enabled = not scene_detail.tree_tab.enabled
             scene.handle_events(events)
 
         # Update scene and display --
         scene.update()
-        rects = scene.draw()
-
+        rectangle_list = scene.draw()
         # Update detail surf --
         scene_detail.update()
         scene_detail.draw()
@@ -73,8 +71,8 @@ def main():
         screen.blit(surf, (0, 0))
         screen.blit(surf_detail, (0, surf.get_height()))
 
-        rects.append(pg.Rect(0, surf.get_height(), display_width, SURF_HEIGHT))
-        pg.display.update(rects)
+        rectangle_list.append(pg.Rect(0, surf.get_height(), display_width, SURF_HEIGHT))
+        pg.display.update(rectangle_list)
 
         clock.tick(FPS)
 
@@ -88,6 +86,7 @@ if __name__ == "__main__":
 
     """profile.disable()
     import pstats
-    pstats.Stats(profile).strip_dirs().sort_stats("cumulative").print_stats(20)"""
+    pstats.Stats(profile).strip_dirs().sort_stats("cumulative").print_stats(24)
+    pstats.Stats(profile).strip_dirs().sort_stats("tottime").print_stats(24)"""
 
 pg.quit()

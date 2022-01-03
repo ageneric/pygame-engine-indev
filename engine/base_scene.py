@@ -24,11 +24,12 @@ class Scene:
 
     def draw(self):
         for child in self.nodes:
-            if child.enabled:
-                child.draw(0)
+            child.draw()
 
         if self.draw_group is not None:
             return self.draw_group.draw(self.screen)
+        else:
+            return []
 
     def add_named_child(self, name: str, node):
         setattr(self, name, node)

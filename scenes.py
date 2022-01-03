@@ -11,12 +11,8 @@ class ExampleBlank(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
 
-        self.n = Node(NodeProperties(self, 30, 30))
-        Node(NodeProperties(self, 75, 75))
-
     def update(self):
         super().update()
-        self.n.transform.x = self.n.transform.x + 1 % self.screen_size_x
 
 def grid_example_generator():
     for i in range(2):
@@ -68,10 +64,17 @@ class ExampleTree(Scene):
         super().__init__(screen, clock)
         self.create_draw_group((8, 6, 6))
 
-        a = SpriteNode(NodeProperties(self, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT)
-        b = SpriteNode(NodeProperties(a, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
-        c = SpriteNode(NodeProperties(self, 20, 80, 20, 20), self.draw_group, fill_color=C_LIGHT)
-        d = SpriteNode(NodeProperties(c, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+        for i in range(200):
+            a = SpriteNode(NodeProperties(self, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT)
+            b = SpriteNode(NodeProperties(a, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+            c = SpriteNode(NodeProperties(self, 20, 80, 20, 20), self.draw_group, fill_color=C_LIGHT)
+            d = SpriteNode(NodeProperties(c, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+
+    def update(self):
+        super().update()
+        for i in self.nodes:
+            i.transform.x += 1
+            i.nodes[0].transform.x += 1
 
     def handle_events(self, pygame_events):
         for event in pygame_events:
@@ -84,6 +87,10 @@ class ExampleTree(Scene):
                     self.nodes[1].enabled = not self.nodes[1].enabled
                 if event.key == pygame.K_4:
                     self.nodes[1].nodes[0].enabled = not self.nodes[1].nodes[0].enabled
+                if event.key == pygame.K_q:
+                    self.nodes[0].transform.x = (self.nodes[0].transform.x + 1) % 600
+                if event.key == pygame.K_w:
+                    self.nodes[0].nodes[0].transform.x = (self.nodes[0].nodes[0].transform.x + 1) % 600
 
 
 class ExampleDetail(Scene):
@@ -98,18 +105,24 @@ class ExampleDetail(Scene):
         self.tree_tab = TreeTabGrid(NodeProperties(self, 30, 20, self.screen_size_x - 30, 125, enabled=False),
                                     self.group, ref, spacing=13, background=C_LIGHT_ISH, color=C_DARK)
 
+    def update(self):
+        super().update()
+
     def draw(self):
         super().draw()
+
         self.screen.fill(C_LIGHT)
-        self.group.draw(self.screen)
+        if self.tree_tab.visible:
+            self.group.draw(self.screen)
+            self.tree_tab.dirty = False
 
         rawtime = self.clock.get_rawtime()
         self.recent_frames_ms.append(rawtime)
-        if len(self.recent_frames_ms) > FPS:
+        if len(self.recent_frames_ms) > 30:
             self.recent_frames_ms.pop(0)
-            message = f'{rawtime}ms processing time / frame ({sum(self.recent_frames_ms)}ms / s)'
+            message = f'{sum(self.recent_frames_ms) * FPS // 30}ms / s ({rawtime}ms / frame)'
         else:
-            message = f'{rawtime}ms processing time / frame'
+            message = f'{rawtime}ms processing / frame'
             
         text.draw(self.screen, message, (30, 5),
                   color=C_DARK_ISH, justify=(False, False))

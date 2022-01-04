@@ -77,13 +77,13 @@ class Node:
         self.nodes = []
 
     def update(self):
-        if self.nodes:  # optimisation; check for leaf node (~0.9x time)
+        if self.nodes:  # checking this is not a leaf node takes ~0.9x the time
             for child in self.nodes:
                 if child.enabled:
                     child.update()
 
     def draw(self):
-        if self.nodes:  # optimisation; check for leaf node (~0.9x time)
+        if self.nodes:  # checking this is not a leaf node takes ~0.9x the time
             for child in self.nodes:
                 if child.enabled:
                     child.draw()
@@ -173,7 +173,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         pygame.sprite.Sprite.kill(self)
         Node.__del__(self)
 
-    def world_visible(self):
+    def world_visible(self) -> bool:
         visible = self._enabled
         parent = self.parent
         while visible and isinstance(parent, Node):

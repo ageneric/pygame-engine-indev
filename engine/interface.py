@@ -57,7 +57,7 @@ class Style:
             return self.dict[name]
         elif name.count("_") == 1:
             base_name, modifier = name.split("_", 1)
-            if modifier == "highlighted":
+            if modifier == "hovered":
                 return modify_color(self.get(base_name), -5)
             elif modifier == "selected":
                 return modify_color(self.get(base_name), 5)
@@ -74,7 +74,7 @@ class Button(SpriteNode):
     To add parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     """
-    idle, hover, press, disabled = range(4)
+    idle, hovered, selected, disabled = range(4)
 
     def __init__(self, node_props, group, message="", callback=None, **kwargs):
         self.style = Style.from_kwargs(kwargs)
@@ -88,8 +88,8 @@ class Button(SpriteNode):
         self.pre_render_text()
 
         self.background_colors_d = {
-            Button.hover: 'background_highlighted',
-            Button.press: 'background_selected',
+            Button.hovered: 'background_hovered',
+            Button.selected: 'background_selected',
             Button.disabled: 'background_disabled'
         }
         self.colors_d = {
@@ -109,17 +109,17 @@ class Button(SpriteNode):
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
         # Only react to a click on mouse-up (helps avoid an accidental click).
-        if self.state == Button.press and event.type == MOUSEBUTTONUP:
+        if self.state == Button.selected and event.type == MOUSEBUTTONUP:
             if mouse_over and self.callback:
                 self.on_click()
             self.state = Button.idle
 
         if mouse_over:
             if event.type == MOUSEBUTTONDOWN:
-                self.state = Button.press
+                self.state = Button.selected
             elif self.state == Button.idle:
-                self.state = Button.hover
-        elif self.state == Button.hover:
+                self.state = Button.hovered
+        elif self.state == Button.hovered:
             self.state = Button.idle
 
         if last_state != self.state:
@@ -134,8 +134,8 @@ class Button(SpriteNode):
             if self.style.get("image", False):
                 self.image.blit(self.style.get("image"), (0, 0))
                 color = self.style.get(self.colors_d.get(self.state, "color"))
-                text.draw(self.image, self.message, (self.transform.width / 2, self.transform.height / 2),
-                          color=color, justify=True)
+                position = (self.transform.width / 2, self.transform.height / 2)
+                text.draw(self.image, self.message, position, color=color, justify=True)
             else:
                 box_color = self.style.get(self.background_colors_d.get(self.state, "background"))
                 color = self.style.get(self.colors_d.get(self.state, "color"))
@@ -153,7 +153,7 @@ class TextEntry(SpriteNode):
     it is recommended to inherit from this class.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
     """
-    idle, hover, selected, disabled = range(4)
+    idle, hovered, selected, disabled = range(4)
 
     def __init__(self, node_props, group, default_text="", enter_callback=None,
                  edit_callback=None, allow_characters=None, **kwargs):
@@ -166,6 +166,12 @@ class TextEntry(SpriteNode):
         self.state = TextEntry.idle
         self.text = default_text
         self.allow_characters = allow_characters
+
+        self.background_colors_d = {
+            TextEntry.hovered: 'background_hovered',
+            TextEntry.selected: 'background_selected',
+            TextEntry.disabled: 'background_disabled'
+        }
 
     def on_enter(self):
         if self.enter_callback is not None:
@@ -191,8 +197,8 @@ class TextEntry(SpriteNode):
                     if event.type == MOUSEBUTTONDOWN:
                         self.state = TextEntry.selected
                     elif self.state == TextEntry.idle:
-                        self.state = TextEntry.hover
-                elif self.state == TextEntry.hover or event.type == MOUSEBUTTONDOWN:
+                        self.state = TextEntry.hovered
+                elif self.state == TextEntry.hovered or event.type == MOUSEBUTTONDOWN:
                     self.state = TextEntry.idle
 
             elif self.state == TextEntry.selected and event.type == pygame.KEYDOWN:
@@ -217,11 +223,8 @@ class TextEntry(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            if self.state == TextEntry.hover:
-                self.image.fill(self.style.get("background_highlighted"))
-            else:
-                self.image.fill(self.style.get("background"))
-
+            background = self.style.get(self.background_colors_d.get(self.state, "background"))
+            self.image.fill(background)
             if self.state == TextEntry.selected:
                 text_to_draw = self.text + '|'
             else:

@@ -1,7 +1,7 @@
 import pygame
-import engine.text
-from engine.base_node import SpriteNode
-from engine.interface import Grid
+import engine.text as text
+from engine.base_node import SpriteNode, NodeProperties
+from engine.interface import Grid, Style, Toggle, modify_color
 
 class TreeEntry:
     def __init__(self, node_props, reference):
@@ -89,9 +89,46 @@ class TreeTabGrid(Grid):
             symbol = 'n'
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        engine.text.draw(entry.image, symbol + ' ' + state, (depth*8, 0), color=self.style.get('color'))
-        engine.text.draw(entry.image, hex(entry.reference_id), (depth*8 + 32, 0), color=self.style.get('color_dim', self.style.get('color')))
+        text.draw(entry.image, symbol + ' ' + state, (depth*8, 0),
+                  color=self.style.get('color'))
+        text.draw(entry.image, hex(entry.reference_id), (depth*8 + 32, 0),
+                  color=self.style.get('color_dim', self.style.get('color')))
         self.dirty = 1
 
+
 class TreeTab(SpriteNode):
-    pass
+    _layer = 0
+
+    def __init__(self, node_props: NodeProperties, group, tree, **kwargs):
+        super().__init__(node_props, group)
+        self.style = Style.from_kwargs(kwargs)
+
+        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 200),
+            group, tree, background=modify_color(self.style.get('background'), 5))
+
+        self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
+            group, "Nodes v", background=modify_color(self.style.get('background'), -5),
+            style=self.style, callback=self.toggle_grid, checked=self.grid.enabled)
+
+        add_mouse_handler = self.scene().mouse_handlers.append
+        add_mouse_handler(self.toggle)
+
+    def draw(self):
+        super().draw()
+
+        if self._visible and self.dirty > 0:
+            self.image.fill(self.style.get('background_editor'))
+
+            background, tabsize = self.style.get('background'), self.style.get('tabsize')
+            w, h = self.transform.width, self.transform.height
+            text.box(self.image, 'Tree', (0, 0), height=tabsize, box_color=background,
+                     font=self.style.get('font'), color=self.style.get('color'))
+            pygame.draw.rect(self.image, background, (0, tabsize, w, h - tabsize))
+
+    def toggle_grid(self, checked):
+        self.grid.enabled = checked
+        self.toggle.message = "Nodes v" if checked else "Nodes x"
+
+    def resize_rect(self):
+        super().resize_rect()
+        self.grid.transform.width = max(0, self.transform.width - 10)

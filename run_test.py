@@ -1,10 +1,14 @@
-"""A basic graphical editor to prototype and edit rect-based PyGame layouts."""
+"""A basic graphical editor to develop Pygame projects in a fixed format.
+Run this file to start a scene (FIRST_SCENE_NAME) alongside a debugging scene."""
 
 # pygame 2.0.1 (SDL 2.0.12, python 3.8.2)
 import pygame as pg
 import scenes
 from constants import *
 from importlib import reload
+
+FIRST_SCENE_NAME = 'ExampleHandling'
+DETAIL_SCENE_NAME = 'ExampleDetail'
 
 print('1/3 Starting: pygame initialisation')
 clock = pg.time.Clock()
@@ -20,8 +24,6 @@ def initialise_scenes(surf, surf_detail, first_scene_name, detail_scene_name):
 
 def main():
     SURF_HEIGHT = 150
-    FIRST_SCENE_NAME = 'ExampleHandling'
-    DETAIL_SCENE_NAME = 'ExampleDetail'
     
     print(f'2/3 Starting: screen resolution {display_width}, {display_height}')
     if pg.version.vernum[0] >= 2:

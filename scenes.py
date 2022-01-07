@@ -15,8 +15,9 @@ class ExampleBlank(Scene):
         super().update()
 
 def grid_example_generator():
-    for i in range(2):
-        yield SpriteNode, dict(fill_color=C_RED)
+    yield SpriteNode, dict(fill_color=C_RED)
+    yield SpriteNode, dict(fill_color=C_GREEN)
+    yield SpriteNode, dict(fill_color=C_BLUE)
 
 class ExampleHandling(Scene):
     """Demo interface components and event handling."""
@@ -27,30 +28,29 @@ class ExampleHandling(Scene):
         def demo_callback(*args):
             print(f'demo callback -> {args}')
         
-        self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.draw_group,
-                                       'Demo clickable', demo_callback, background=C_LIGHT)
+        self.demo_button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.draw_group,
+                                            'Demo clickable', demo_callback, background=C_LIGHT)
+        self.mouse_handlers.append(self.demo_button)
+
+        self.demo_button2 = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.draw_group,
+                                             'Demo clickable 2', demo_callback, background=C_DARK)
+        self.mouse_handlers.append(self.demo_button2)
+
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32), self.draw_group,
-                                                 'Image clickable', self.toggle_button,
-                                                 image=image)
-        self.mouse_handlers.append(self.button)
+        toggle_visible_button = interface.Button(NodeProperties(self, 100, 50, 32, 32), self.draw_group,
+                                                 'Image clickable', self.toggle_button, image=image)
         self.mouse_handlers.append(toggle_visible_button)
 
-        self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.draw_group,
-                                            'Second group clickable', demo_callback,
-                                            background=C_DARK)
-        self.mouse_handlers.append(self.test_button)
-
-        self.test_entry = interface.TextEntry(NodeProperties(self, 125, 425, 350, 20), self.draw_group,
+        self.test_entry = interface.TextEntry(NodeProperties(self, 25, 425, 350, 20), self.draw_group,
                                               '12345', demo_callback, allow_characters='0123456789.',
                                               background=C_DARK)
 
-        self.test_grid = interface.SpriteGrid(NodeProperties(self, 200, 200, 200, 200),
+        self.test_grid = interface.SpriteGrid(NodeProperties(self, 100, 200, 200, 200),
                                               self.draw_group, grid_example_generator(), background=C_LIGHT)
 
     def toggle_button(self):
-        self.button.enabled = not self.button.enabled
-        self.test_button.enabled = not self.test_button.enabled
+        self.demo_button.enabled = not self.demo_button.enabled
+        self.demo_button2.enabled = not self.demo_button2.enabled
 
     def handle_events(self, pygame_events):
         for event in pygame_events:
@@ -64,17 +64,17 @@ class ExampleTree(Scene):
         super().__init__(screen, clock)
         self.create_draw_group((8, 6, 6))
 
-        for i in range(200):
-            a = SpriteNode(NodeProperties(self, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT)
-            b = SpriteNode(NodeProperties(a, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
-            c = SpriteNode(NodeProperties(self, 20, 80, 20, 20), self.draw_group, fill_color=C_LIGHT)
-            d = SpriteNode(NodeProperties(c, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+        # for i in range(200):
+        a = SpriteNode(NodeProperties(self, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT)
+        b = SpriteNode(NodeProperties(a, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+        c = SpriteNode(NodeProperties(self, 20, 80, 20, 20), self.draw_group, fill_color=C_LIGHT)
+        d = SpriteNode(NodeProperties(c, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
 
-    def update(self):
-        super().update()
-        for i in self.nodes:
-            i.transform.x += 1
-            i.nodes[0].transform.x += 1
+    # def update(self):
+    #     super().update()
+    #     for i in self.nodes:
+    #         i.transform.x += 1
+    #         i.nodes[0].transform.x += 1
 
     def handle_events(self, pygame_events):
         for event in pygame_events:

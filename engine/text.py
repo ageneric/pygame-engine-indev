@@ -2,15 +2,15 @@ import pygame
 from typing import Union
 
 pygame.font.init()
-main_font = pygame.font.SysFont('Calibri', 16)
+FONT_DEFAULT = pygame.font.SysFont('Calibri', 16)
 
 COLOR_DEFAULT = (191, 131, 191)
-BACKGROUND_DEFAULT = (15, 15, 15)
+BACKGROUND_DEFAULT = (20, 20, 24)
 BOX_PADDING = 5
 
 _sprite_cache = {}
 
-def draw(surface, message: str, position, font=main_font, color=COLOR_DEFAULT,
+def draw(surface, message: str, position, font=FONT_DEFAULT, color=COLOR_DEFAULT,
          text_sprite=None, static=False, justify: Union[bool, list, tuple] = False):
     """Draws text to the surface at the (x, y) position specified.
     Justify - set to True/False to centre in both axes, or
@@ -31,7 +31,7 @@ def draw(surface, message: str, position, font=main_font, color=COLOR_DEFAULT,
 
     return surface.blit(text_sprite, (x, y))
 
-def render(message, font=main_font, color=COLOR_DEFAULT, save_sprite=True):
+def render(message, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=True):
     """Render text, using the sprite cache if possible.
     Adds to sprite cache when called directly / rendering static text.
     """
@@ -45,7 +45,7 @@ def render(message, font=main_font, color=COLOR_DEFAULT, save_sprite=True):
     return text_sprite
 
 def box(surface, message: str, position, width=None, height=None, middle=False,
-        box_color=BACKGROUND_DEFAULT, font=main_font, color=COLOR_DEFAULT):
+        box_color=BACKGROUND_DEFAULT, font=FONT_DEFAULT, color=COLOR_DEFAULT):
     """Blits a text box to the surface at position, a pair
     of (x, y) coordinates. Width and height, if omitted, fit
     the text's size (with padding). Middle centres text.

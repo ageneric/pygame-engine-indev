@@ -5,6 +5,8 @@ class Scene:
     once per frame. To switch scene, the new scene flag
     is set to the next scene (detect this in main loop).
     """
+    is_origin = 0
+
     def __init__(self, screen, clock):
         self.screen = screen
         self.clock = clock
@@ -29,7 +31,7 @@ class Scene:
         if self.draw_group is not None:
             return self.draw_group.draw(self.screen)
         else:
-            return []
+            return None
 
     def add_named_child(self, name: str, node):
         setattr(self, name, node)
@@ -45,6 +47,10 @@ class Scene:
         if node in self.mouse_handlers:
             self.mouse_handlers.remove(node)
 
+    def mouse_event(self, type, pos, **kwargs):
+        pass
+    def other_event(self, type, **kwargs):
+        pass
     def handle_events(self, pygame_events):
         pass
 
@@ -53,12 +59,20 @@ class Scene:
         the background surface with the given color.
         Set background_color to None for a transparent background."""
         self.background_color = background_color
-        background_surf = pygame.Surface(self.screen_size)
+        self.background_surf = pygame.Surface(self.screen_size)
         if self.background_color is not None:
-            background_surf.fill(self.background_color)
-        self.draw_group = pygame.sprite.LayeredDirty()
-        self.draw_group.clear(self.screen, background_surf)
+            self.background_surf.fill(self.background_color)
+        if self.draw_group is None:
+            self.draw_group = pygame.sprite.LayeredDirty()
+        self.draw_group.clear(self.screen, self.background_surf)
         self.groups.append(self.draw_group)
+
+    def resize_draw_group(self):
+        self.background_surf = pygame.Surface(self.screen_size, 0, self.background_surf)
+        if self.background_color is not None:
+            self.background_surf.fill(self.background_color)
+        self.draw_group.clear(self.screen, self.background_surf)
+        self.draw_group.repaint_rect(self.screen.get_rect())
 
     def change_scene(self, new_scene, *args):
         self.flag_new_scene = new_scene

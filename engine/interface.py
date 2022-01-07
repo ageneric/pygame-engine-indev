@@ -39,16 +39,23 @@ def saturate_color(color, saturation: float):
 
 class Style:
     def __init__(self, **kwargs):
-        self.dict = {'color': COLOR_DEFAULT, 'background': BACKGROUND_DEFAULT}
+        self.dict = {'color': COLOR_DEFAULT, 'background': BACKGROUND_DEFAULT,
+                     'font': text.FONT_DEFAULT}
         self.dict.update(kwargs)
 
-    # def __repr__(self):
-    #     return str(self.__dict__)
+    def __repr__(self) -> str:
+        return str(self.dict)
 
     @classmethod
     def from_kwargs(cls, kwargs):
         if kwargs.get("style", False):
-            return kwargs.get("style")
+            style = kwargs.pop('style')
+            if not kwargs:
+                return style
+            else:
+                style_copy = cls(**style.dict)
+                style_copy.dict.update(kwargs)
+                return style_copy
         else:
             return cls(**kwargs)
 
@@ -57,15 +64,25 @@ class Style:
             return self.dict[name]
         elif name.count("_") == 1:
             base_name, modifier = name.split("_", 1)
-            if modifier == "hovered":
-                return modify_color(self.get(base_name), -5)
-            elif modifier == "selected":
-                return modify_color(self.get(base_name), 5)
-            elif modifier == "disabled":
-                return saturate_color(modify_color(self.get(base_name), -10), 0.25)
+            color = self.get(base_name)
+            if isinstance(color, pygame.Color) or type(color) == tuple:
+                if modifier == "hovered" and base_name != "color":
+                    color = modify_color(color, -5)
+                elif modifier == "selected" and base_name != "color":
+                    color = modify_color(color, 5)
+                elif modifier == "blocked":
+                    color = modify_color(saturate_color(color, -10), 0.25)
+            return color
         if default != NO_VALUE:
             return default
         raise KeyError(f"Not a key and not a modifier of a key: {name} in {self.dict}")
+
+    def get_by_state(self, base_name, state):
+        return self.get(base_name + State.modifier[state])
+
+class State:
+    idle, hovered, selected, blocked = range(4)
+    modifier = "", "_hovered", "_selected", "_blocked"
 
 
 class Button(SpriteNode):
@@ -74,27 +91,15 @@ class Button(SpriteNode):
     To add parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     """
-    idle, hovered, selected, disabled = range(4)
-
     def __init__(self, node_props, group, message="", callback=None, **kwargs):
+        super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
-        super().__init__(node_props, group, image=kwargs.get("image", None),
-                         fill_color=self.style.get("background"))
 
         self.callback = callback
         self.message = message
 
-        self.state = Button.idle
+        self.state = State.idle
         self.pre_render_text()
-
-        self.background_colors_d = {
-            Button.hovered: 'background_hovered',
-            Button.selected: 'background_selected',
-            Button.disabled: 'background_disabled'
-        }
-        self.colors_d = {
-            Button.disabled: 'color_disabled'
-        }
 
     def pre_render_text(self):
         return text.render(self.message, color=self.style.get('color'), save_sprite=True)
@@ -104,23 +109,23 @@ class Button(SpriteNode):
         so it can update (i.e. if hovered or clicked).
         For speed, only call if `event.type in MOUSE_EVENTS`.
         """
-        if self.state == Button.disabled or not self._visible:
+        if self.state == State.blocked or not self._visible:
             return
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
         # Only react to a click on mouse-up (helps avoid an accidental click).
-        if self.state == Button.selected and event.type == MOUSEBUTTONUP:
+        if self.state == State.selected and event.type == MOUSEBUTTONUP:
             if mouse_over and self.callback:
                 self.on_click()
-            self.state = Button.idle
+            self.state = State.idle
 
         if mouse_over:
             if event.type == MOUSEBUTTONDOWN:
-                self.state = Button.selected
-            elif self.state == Button.idle:
-                self.state = Button.hovered
-        elif self.state == Button.hovered:
-            self.state = Button.idle
+                self.state = State.selected
+            elif self.state == State.idle:
+                self.state = State.hovered
+        elif self.state == State.hovered:
+            self.state = State.idle
 
         if last_state != self.state:
             self.dirty = 1
@@ -133,15 +138,23 @@ class Button(SpriteNode):
         if self._visible and self.dirty > 0:
             if self.style.get("image", False):
                 self.image.blit(self.style.get("image"), (0, 0))
-                color = self.style.get(self.colors_d.get(self.state, "color"))
-                position = (self.transform.width / 2, self.transform.height / 2)
-                text.draw(self.image, self.message, position, color=color, justify=True)
             else:
-                box_color = self.style.get(self.background_colors_d.get(self.state, "background"))
-                color = self.style.get(self.colors_d.get(self.state, "color"))
+                self.image.fill(self.style.get_by_state("background", self.state))
 
-                text.box(self.image, self.message, (0, 0),
-                         self.rect.width, self.rect.height, True, box_color, color=color)
+            if self.message:
+                position = (self.transform.width / 2, self.transform.height / 2)
+                color = self.style.get_by_state("color", self.state)
+                text.draw(self.image, self.message, position,
+                          font=self.style.get('font', text.FONT_DEFAULT), color=color, justify=True)
+
+class Toggle(Button):
+    def __init__(self, node_props, group, message="", callback=None, checked=False, **kwargs):
+        super().__init__(node_props, group, message, callback, **kwargs)
+        self.checked = checked
+
+    def on_click(self):
+        self.checked = not self.checked
+        self.callback(self.checked)
 
 
 class TextEntry(SpriteNode):
@@ -153,37 +166,29 @@ class TextEntry(SpriteNode):
     it is recommended to inherit from this class.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
     """
-    idle, hovered, selected, disabled = range(4)
-
     def __init__(self, node_props, group, default_text="", enter_callback=None,
                  edit_callback=None, allow_characters=None, **kwargs):
+        super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
-        super().__init__(node_props, group, fill_color=self.style.get("background"))
 
         self.enter_callback = enter_callback
         self.edit_callback = edit_callback
 
-        self.state = TextEntry.idle
+        self.state = State.idle
         self.text = default_text
         self.allow_characters = allow_characters
-
-        self.background_colors_d = {
-            TextEntry.hovered: 'background_hovered',
-            TextEntry.selected: 'background_selected',
-            TextEntry.disabled: 'background_disabled'
-        }
 
     def on_enter(self):
         if self.enter_callback is not None:
             self.enter_callback(self.text)
-        self.state = TextEntry.idle
+        self.state = State.idle
 
     def on_edit(self):
         if self.edit_callback is not None:
             self.edit_callback(self.text)
 
     def events(self, pygame_events):
-        if self.state == TextEntry.disabled or not self._visible:
+        if self.state == State.blocked or not self._visible:
             return
 
         last_state = self.state
@@ -195,25 +200,27 @@ class TextEntry(SpriteNode):
 
                 if mouse_over:
                     if event.type == MOUSEBUTTONDOWN:
-                        self.state = TextEntry.selected
-                    elif self.state == TextEntry.idle:
-                        self.state = TextEntry.hovered
-                elif self.state == TextEntry.hovered or event.type == MOUSEBUTTONDOWN:
-                    self.state = TextEntry.idle
+                        self.state = State.selected
+                    elif self.state == State.idle:
+                        self.state = State.hovered
+                elif self.state == State.hovered or event.type == MOUSEBUTTONDOWN:
+                    self.state = State.idle
 
-            elif self.state == TextEntry.selected and event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    if self.enter_callback:
-                        self.on_enter()
-                elif event.key == pygame.K_ESCAPE or event.key == pygame.K_TAB:
-                    self.state = TextEntry.idle
+            elif self.state == State.selected and event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
+                    self.on_enter()
                 elif event.mod & pygame.KMOD_CTRL:
                     if event.key == pygame.K_BACKSPACE:
                         self.text = ''
                 elif event.key == pygame.K_BACKSPACE:
                     self.text = self.text[:-1]
-                elif self.allow_characters is None or event.unicode in self.allow_characters:
-                    self.text += event.unicode
+                else:
+                    if pygame.version.vernum[0] >= 2:
+                        key = event.unicode
+                    else:
+                        key = chr(event.key) if 0x20 <= event.key <= 0x7e else ''
+                    if key and (self.allow_characters is None or key in self.allow_characters):
+                        self.text += key
 
         if last_state != self.state or last_text != self.text:
             self.dirty = 1
@@ -223,14 +230,15 @@ class TextEntry(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            background = self.style.get(self.background_colors_d.get(self.state, "background"))
+            background = self.style.get_by_state("background", self.state)
             self.image.fill(background)
-            if self.state == TextEntry.selected:
-                text_to_draw = self.text + '|'
+            if self.state == State.selected:
+                draw_message = self.text + '|'
             else:
-                text_to_draw = self.text
-            text.draw(self.image, text_to_draw, (4, self.transform.height / 2),
-                      justify=(False, True))
+                draw_message = self.text
+            text.draw(self.image, draw_message, (4, self.transform.height / 2),
+                      font=self.style.get('font'),
+                      color=self.style.get('color'), justify=(False, True))
 
 
 class Grid(SpriteNode):
@@ -243,9 +251,12 @@ class Grid(SpriteNode):
     initial tiles of its type are supplied. Alternatively, set the properties
     self.use_draw_method or self.use_update_method = True by subclassing Grid.
     The keyword arguments spacing and background change the appearance."""
-    def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, **kwargs):
+    is_origin = 0
+
+    def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, spacing=20, **kwargs):
+        super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
-        super().__init__(node_props, group, fill_color=self.style.get("background"))
+        self.spacing = spacing
 
         self.horizontal = horizontal
         if initial_nodes_gen is not None:
@@ -278,18 +289,16 @@ class Grid(SpriteNode):
                     self.image.blit(tile.image, self.index_to_position(i))
 
     def index_to_position(self, index):
-        spacing = self.style.get('spacing', 20)
         if self.horizontal:
-            return index*spacing, 0, spacing, self.transform.height
+            return index*self.spacing, 0, self.spacing, self.transform.height
         else:
-            return 0, index*spacing, self.transform.width, spacing
+            return 0, index*self.spacing, self.transform.width, self.spacing
 
     def position_to_index(self, position_x_y: (float, float)) -> int:
-        spacing = self.style.get('spacing', 20)
         if self.horizontal:
-            return position_x_y[0] // spacing
+            return position_x_y[0] // self.spacing
         else:
-            return position_x_y[1] // spacing
+            return position_x_y[1] // self.spacing
 
     def add_child(self, child):
         super().add_child(child)
@@ -299,14 +308,15 @@ class Grid(SpriteNode):
         super().remove_child(child)
         self.dirty = 1
 
+    # These methods differ from the base methods - do not cascade to children
     def cascade_move_rect(self, dx, dy):
         self.rect.move_ip(dx, dy)
 
     def cascade_set_visible(self, set_visible):
-        visible = set_visible and self.enabled
-        if visible != self._visible:
-            self.dirty = self._visible = visible
+        self.visible = set_visible and self.enabled
 
+# TODO: consider that SpriteGrid is not very useful in its current state
+# A layout that considers each item's height, however, could be useful
 class SpriteGrid(Grid):
     """A container for equally spaced SpriteNodes that draws them onto a buffer.
     By default, the update() and draw() methods are called. To avoid this, set
@@ -332,16 +342,16 @@ class SpriteGrid(Grid):
                     tile.draw()
 
             self.image.fill(self.style.get("background"))
-            wr = self.world_rect()
             for i, tile in enumerate(self.nodes):
-                correct_rect = Rect(*self.index_to_position(i)).move(-wr.x, -wr.y)
+                correct_rect = Rect(*self.index_to_position(i))
                 if tile.transform.rect() != correct_rect:
                     tile.transform.position = correct_rect.topleft
                     tile.transform.size = correct_rect.size
-                    tile.dirty = True
             self.grid_group.draw(self.image)
 
-        if self._visible and self.dirty > 0:
-            for i, tile in enumerate(self.nodes):
-                if hasattr(tile, 'image'):
-                    self.image.blit(tile.image, self.index_to_position(i))
+    # Undo the overrides in Grid - do cascade transform changes to children
+    def cascade_move_rect(self, dx, dy):
+        SpriteNode.cascade_move_rect(self, dx, dy)
+
+    def cascade_set_visible(self, set_visible):
+        SpriteNode.cascade_set_visible(self, set_visible)

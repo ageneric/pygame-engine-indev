@@ -36,7 +36,7 @@ class Transform:
 
     def __setattr__(self, name, val):  # may alternatively be achieved using properties
         object.__setattr__(self, name, val)
-        if hasattr(self, 'node') and name not in ('anchor_x', 'anchor_y', 'anchor', 'node'):
+        if hasattr(self, 'node') and name not in ('anchor_x', 'anchor_y', 'node'):
             self.node.transform_on_update()
 
     # Getters and setters for transform properties
@@ -72,8 +72,10 @@ class Node:
         self.parent.add_child(self)
         self.transform = Transform(*node_props[1:7], node=self)
         self._enabled = node_props[8]
-        self.rect = self.world_rect()
 
+        self.rect = self.transform.rect()
+        if isinstance(self.parent, Node):
+            self.rect.move_ip(self.parent.rect.x, self.parent.rect.y)
         self.nodes = []
 
     def update(self):
@@ -102,7 +104,7 @@ class Node:
     def world_rect(self) -> pygame.Rect:
         rect = self.transform.rect()
         parent = self.parent
-        while isinstance(parent, Node):
+        while not hasattr(parent, 'is_origin'):
             rect.move_ip(parent.transform.x, parent.transform.y)
             parent = parent.parent
         return rect
@@ -129,15 +131,18 @@ class Node:
         self.cascade_set_visible(set_enable)
 
     def transform_on_update(self):
-        if isinstance(self.parent, Node):
-            dx, dy = self.transform.x - self.rect.x + self.parent.rect.x, self.transform.y - self.rect.y + self.parent.rect.y
-        else:
+        if hasattr(self.parent, 'is_origin'):
             dx, dy = self.transform.x - self.rect.x, self.transform.y - self.rect.y
+        else:
+            dx, dy = self.transform.x - self.rect.x + self.parent.rect.x, self.transform.y - self.rect.y + self.parent.rect.y
         if dx or dy:
             self.cascade_move_rect(dx, dy)
         else:
-            self.rect.width = self.transform.width
-            self.rect.height = self.transform.height
+            self.resize_rect()
+
+    def resize_rect(self):
+        self.rect.width = self.transform.width
+        self.rect.height = self.transform.height
 
     def cascade_set_visible(self, set_visible: bool):
         if self.nodes:
@@ -191,5 +196,12 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
 
     def cascade_move_rect(self, dx, dy):
         Node.cascade_move_rect(self, dx, dy)
+        if self.dirty < 2:
+            self.dirty = 1
+
+    def resize_rect(self):
+        Node.resize_rect(self)
+        print(self, hex(id(self)), 'resize', self.transform.size)
+        self.image = pygame.Surface(self.transform.size)
         if self.dirty < 2:
             self.dirty = 1

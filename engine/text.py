@@ -31,7 +31,7 @@ def draw(surface, message: str, position, font=FONT_DEFAULT, color=COLOR_DEFAULT
 
     return surface.blit(text_sprite, (x, y))
 
-def render(message, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=True):
+def render(message: str, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=True):
     """Render text, using the sprite cache if possible.
     Adds to sprite cache when called directly / rendering static text.
     """

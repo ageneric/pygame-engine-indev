@@ -3,6 +3,7 @@ import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
 from engine.base_node import NodeProperties
+from engine.spritesheet import TileSpriteSheet
 from constants import *
 
 from tree_tab import TreeTab
@@ -28,9 +29,11 @@ class Editor(Scene):
         tab_style = interface.Style(background_editor=(20, 20, 24), background=(48, 48, 50),
                                     tabsize=20, color=C_LIGHT)
 
+        self.icon_sheet = TileSpriteSheet('Assets/node_sprite_icons.png')
+
         self.user_scene = user_scene(self.user_surface, clock)
         self.tree_tab = TreeTab(NodeProperties(self, TAB_PADDING, 32, scene_tab_x - TAB_PADDING*2, self.screen_size_y),
-            self.draw_group, self.user_scene, style=tab_style)
+            self.draw_group, self.user_scene, self.icon_sheet, style=tab_style)
         self.scene_tab = SceneTab(NodeProperties(self, scene_tab_x, 32, self.user_scene_rect.width, tab_style.get('tabsize')),
             self.draw_group, self.user_scene, style=tab_style)
 
@@ -76,7 +79,7 @@ class Editor(Scene):
             message = f'{rawtime}ms processing / frame'
 
         text.draw(self.screen, message, (30, 5), color=C_LIGHT_ISH)
-        self.draw_group.repaint_rect((30, 5, 160, 20))
+        self.draw_group.repaint_rect((30, 5, 180, 20))
 
         return rects
 
@@ -103,7 +106,7 @@ class Editor(Scene):
 class Select(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        self.next_scene = ""
+        self.next_scene = ''
 
     def select_scene(self):
         self.change_scene(Editor, self.next_scene)

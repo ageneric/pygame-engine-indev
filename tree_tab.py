@@ -1,5 +1,6 @@
 import pygame
 import engine.text as text
+import engine.spritesheet as sheet
 from engine.base_node import SpriteNode, NodeProperties
 from engine.interface import Grid, Style, Toggle, modify_color
 
@@ -14,7 +15,14 @@ class TreeEntry:
         self.image = pygame.Surface((node_props[3], node_props[4]))
 
 class TreeTabGrid(Grid):
-    def __init__(self, node_props, group, tree, **kwargs):
+    def __init__(self, node_props, group, tree, icon_sheet, **kwargs):
+        image_node = icon_sheet.load_image((0, 0, 1, 1), 8)
+        image_sprite_node = icon_sheet.load_image((1, 0, 1, 1), 8)
+        self.icon_images = [[image_node, image_node.copy(), image_node.copy()],
+                            [image_sprite_node, image_sprite_node.copy(), image_sprite_node.copy()]]
+        sheet.tint_surface(self.icon_images[0][0], (110, 100, 100))
+        sheet.tint_surface(self.icon_images[1][0], (110, 100, 100))
+
         super().__init__(node_props, group, **kwargs)
         self.tree = tree
         self.copy_list = self.nodes  # alias
@@ -26,11 +34,10 @@ class TreeTabGrid(Grid):
             self.get_copy_list(node, depth + 1)
 
     def make_copy_list_entry(self, reference_node, depth):
-        spacing = self.style.get('spacing', 20)
         if self.horizontal:
-            node_props = (None, 0, 0, spacing, self.transform.height)
+            node_props = (None, 0, 0, self.spacing, self.transform.height)
         else:
-            node_props = (None, 0, 0, self.transform.width, spacing)
+            node_props = (None, 0, 0, self.transform.width, self.spacing)
         entry = TreeEntry(node_props, reference_node)
         self.redraw_entry(entry, depth)
         self.copy_list.append(entry)
@@ -84,13 +91,14 @@ class TreeTabGrid(Grid):
     def redraw_entry(self, entry, depth):
         entry.image.fill(self.style.get('background'))
         if entry.reference_visible >= 0:
-            symbol = 's'
+            entry.image.blit(self.icon_images[1][entry.reference_enabled], (depth*8, self.spacing - 16))
         else:
-            symbol = 'n'
+            entry.image.blit(self.icon_images[0][entry.reference_enabled], (depth*8, self.spacing - 16))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        text.draw(entry.image, symbol + ' ' + state, (depth*8, 0),
+        text.draw(entry.image, state, (depth*8 + 12, 0),
                   color=self.style.get('color'))
+
         text.draw(entry.image, hex(entry.reference_id), (depth*8 + 32, 0),
                   color=self.style.get('color_dim', self.style.get('color')))
         self.dirty = 1
@@ -99,12 +107,12 @@ class TreeTabGrid(Grid):
 class TreeTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, tree, **kwargs):
+    def __init__(self, node_props: NodeProperties, group, tree, icon_sheet, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
         self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 200),
-            group, tree, background=modify_color(self.style.get('background'), 5))
+            group, tree, icon_sheet, background=modify_color(self.style.get('background'), 5))
 
         self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
             group, "Nodes v", background=modify_color(self.style.get('background'), -5),

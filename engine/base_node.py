@@ -11,7 +11,7 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
-    __slots__ = "node", "x", "y", "width", "height", "anchor_x", "anchor_y", "rotation"
+    __slots__ = 'node', 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'rotation'
 
     def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, rotation=0.0, node=None):
         self.x = x
@@ -74,7 +74,7 @@ class Node:
         self._enabled = node_props[8]
 
         self.rect = self.transform.rect()
-        if isinstance(self.parent, Node):
+        if not hasattr(self.parent, 'is_origin'):
             self.rect.move_ip(self.parent.rect.x, self.parent.rect.y)
         self.nodes = []
 

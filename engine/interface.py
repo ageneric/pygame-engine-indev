@@ -48,7 +48,7 @@ class Style:
 
     @classmethod
     def from_kwargs(cls, kwargs):
-        if kwargs.get("style", False):
+        if kwargs.get('style', False):
             style = kwargs.pop('style')
             if not kwargs:
                 return style
@@ -62,27 +62,27 @@ class Style:
     def get(self, name: str, default=NO_VALUE):
         if name in self.dict:
             return self.dict[name]
-        elif name.count("_") == 1:
-            base_name, modifier = name.split("_", 1)
+        elif name.count('_') == 1:
+            base_name, modifier = name.split('_', 1)
             color = self.get(base_name)
             if isinstance(color, pygame.Color) or type(color) == tuple:
-                if modifier == "hovered" and base_name != "color":
+                if modifier == 'hovered' and base_name != 'color':
                     color = modify_color(color, -5)
-                elif modifier == "selected" and base_name != "color":
+                elif modifier == 'selected' and base_name != 'color':
                     color = modify_color(color, 5)
-                elif modifier == "blocked":
+                elif modifier == 'blocked':
                     color = modify_color(saturate_color(color, -10), 0.25)
             return color
         if default != NO_VALUE:
             return default
-        raise KeyError(f"Not a key and not a modifier of a key: {name} in {self.dict}")
+        raise KeyError(f'Not a key and not a modifier of a key: {name} in {self.dict}')
 
     def get_by_state(self, base_name, state):
         return self.get(base_name + State.modifier[state])
 
 class State:
     idle, hovered, selected, blocked = range(4)
-    modifier = "", "_hovered", "_selected", "_blocked"
+    modifier = '', '_hovered', '_selected', '_blocked'
 
 
 class Button(SpriteNode):
@@ -91,7 +91,7 @@ class Button(SpriteNode):
     To add parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     """
-    def __init__(self, node_props, group, message="", callback=None, **kwargs):
+    def __init__(self, node_props, group, message='', callback=None, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
@@ -136,19 +136,19 @@ class Button(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            if self.style.get("image", False):
-                self.image.blit(self.style.get("image"), (0, 0))
+            if self.style.get('image', False):
+                self.image.blit(self.style.get('image'), (0, 0))
             else:
-                self.image.fill(self.style.get_by_state("background", self.state))
+                self.image.fill(self.style.get_by_state('background', self.state))
 
             if self.message:
                 position = (self.transform.width / 2, self.transform.height / 2)
-                color = self.style.get_by_state("color", self.state)
+                color = self.style.get_by_state('color', self.state)
                 text.draw(self.image, self.message, position,
                           font=self.style.get('font', text.FONT_DEFAULT), color=color, justify=True)
 
 class Toggle(Button):
-    def __init__(self, node_props, group, message="", callback=None, checked=False, **kwargs):
+    def __init__(self, node_props, group, message='', callback=None, checked=False, **kwargs):
         super().__init__(node_props, group, message, callback, **kwargs)
         self.checked = checked
 
@@ -166,7 +166,7 @@ class TextEntry(SpriteNode):
     it is recommended to inherit from this class.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
     """
-    def __init__(self, node_props, group, default_text="", enter_callback=None,
+    def __init__(self, node_props, group, default_text='', enter_callback=None,
                  edit_callback=None, allow_characters=None, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
@@ -230,7 +230,7 @@ class TextEntry(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            background = self.style.get_by_state("background", self.state)
+            background = self.style.get_by_state('background', self.state)
             self.image.fill(background)
             if self.state == State.selected:
                 draw_message = self.text + '|'
@@ -283,7 +283,7 @@ class Grid(SpriteNode):
                 for tile in self.nodes:
                     tile.draw()
 
-            self.image.fill(self.style.get("background"))
+            self.image.fill(self.style.get('background'))
             for i, tile in enumerate(self.nodes):
                 if hasattr(tile, 'image'):
                     self.image.blit(tile.image, self.index_to_position(i))
@@ -341,7 +341,7 @@ class SpriteGrid(Grid):
                 for tile in self.nodes:
                     tile.draw()
 
-            self.image.fill(self.style.get("background"))
+            self.image.fill(self.style.get('background'))
             for i, tile in enumerate(self.nodes):
                 correct_rect = Rect(*self.index_to_position(i))
                 if tile.transform.rect() != correct_rect:

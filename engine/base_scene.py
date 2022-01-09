@@ -33,17 +33,14 @@ class Scene:
         else:
             return None
 
-    def add_named_child(self, name: str, node):
-        setattr(self, name, node)
-        self.add_child(node)
-
     def add_child(self, node):
+        """Called internally. To specify the parent of a Node on
+        initialisation, set NodeProperties[0]. Do not use this method."""
         self.nodes.append(node)
         node.parent = self
 
     def remove_child(self, node):
-        self.nodes.remove(node)
-        node.parent = None
+        node.remove()
         if node in self.mouse_handlers:
             self.mouse_handlers.remove(node)
 

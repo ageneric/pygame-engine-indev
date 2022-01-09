@@ -36,7 +36,7 @@ class Transform:
 
     def __setattr__(self, name, val):  # may alternatively be achieved using properties
         object.__setattr__(self, name, val)
-        if hasattr(self, 'node') and name not in ('anchor_x', 'anchor_y', 'node'):
+        if hasattr(self, 'node') and name in ('x', 'y', 'width', 'height'):
             self.node.transform_on_update()
 
     # Getters and setters for transform properties
@@ -91,13 +91,14 @@ class Node:
                     child.draw()
 
     def add_child(self, child):
+        """Called internally. To specify the parent of a Node on
+        initialisation, set NodeProperties[0]. Do not use this method."""
         self.nodes.append(child)
         child.parent = self
 
     def remove_child(self, child):
         if child in self.nodes:
-            self.nodes.remove(child)
-            child.parent = None
+            child.remove()
         else:
             print(f'Engine warning: could not remove child {child} as it could not be found.')
 
@@ -115,11 +116,13 @@ class Node:
             parent = parent.parent
         return parent
 
-    def __del__(self):
-        self.parent = None
-        # Calls __del__() for each child node, and by recursion all nodes below it
-        # Equivalent to self.nodes.clear() but not del self.nodes
-        del self.nodes[:]
+    def remove(self):
+        if self in self.parent.nodes:
+            self.parent.nodes.remove(self)
+        self.transform.node = None
+        for child in self.nodes:
+            child.remove()
+        self.nodes.clear()
 
     @property
     def enabled(self) -> bool:
@@ -174,15 +177,15 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         else:
             self.image = pygame.Surface(self.transform.size, 0, image)
 
-    def __del__(self):
+    def remove(self):
         pygame.sprite.Sprite.kill(self)
-        Node.__del__(self)
+        Node.remove(self)
 
     def world_visible(self) -> bool:
         visible = self._enabled
         parent = self.parent
         while visible and isinstance(parent, Node):
-            visible = parent.visible and visible
+            visible = (not hasattr(parent, 'visible') or parent.visible) and visible
             parent = parent.parent
         return visible
 
@@ -201,7 +204,6 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
 
     def resize_rect(self):
         Node.resize_rect(self)
-        print(self, hex(id(self)), 'resize', self.transform.size)
         self.image = pygame.Surface(self.transform.size)
         if self.dirty < 2:
             self.dirty = 1

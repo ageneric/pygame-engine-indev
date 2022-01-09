@@ -257,10 +257,11 @@ class Grid(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
         self.spacing = spacing
+        self.scroll_pixels = 0
 
         self.horizontal = horizontal
         if initial_nodes_gen is not None:
-            self.generate_grid(initial_nodes_gen)
+            self.populate_grid(initial_nodes_gen)
             # Check the first node for methods and assume they are all identical
             t_node = self.nodes[0]
             self.use_update_method = hasattr(t_node, 'update') and callable(t_node.update)
@@ -268,8 +269,8 @@ class Grid(SpriteNode):
         else:
             self.use_update_method = self.use_draw_method = False
 
-    def generate_grid(self, initial_nodes_gen):
-        for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
+    def populate_grid(self, initial_nodes_gen):
+        for (inst_class, *args, kwargs) in initial_nodes_gen:
             self.nodes.append(inst_class(*args, **kwargs))
 
     def update(self):
@@ -284,21 +285,41 @@ class Grid(SpriteNode):
                     tile.draw()
 
             self.image.fill(self.style.get('background'))
-            for i, tile in enumerate(self.nodes):
+            for tile, position in zip(self.nodes, self.tile_positions()):
                 if hasattr(tile, 'image'):
-                    self.image.blit(tile.image, self.index_to_position(i))
+                    self.image.blit(tile.image, position)
 
-    def index_to_position(self, index):
+    def tile_rects(self):
+        tile_rect = self.forward_to_rect(-self.scroll_pixels)
+        move_x, move_y = self.forward_to_position(self.spacing)
+        while True:
+            yield tile_rect
+            tile_rect.move_ip(move_x, move_y)
+
+    def tile_positions(self):
+        position = list(self.forward_to_position(-self.scroll_pixels))
+        index_x_or_y = not self.horizontal
+        while True:
+            yield position
+            position[index_x_or_y] += self.spacing
+
+    def forward_to_position(self, forward_pixels):
         if self.horizontal:
-            return index*self.spacing, 0, self.spacing, self.transform.height
+            return forward_pixels, 0
         else:
-            return 0, index*self.spacing, self.transform.width, self.spacing
+            return 0, forward_pixels
+
+    def forward_to_rect(self, forward_pixels):
+        if self.horizontal:
+            return pygame.Rect(forward_pixels, 0, self.spacing, self.transform.height)
+        else:
+            return pygame.Rect(0, forward_pixels, self.transform.width, self.spacing)
+
+    def index_to_rect(self, index):
+        return self.forward_to_rect(index * self.spacing)
 
     def position_to_index(self, position_x_y: (float, float)) -> int:
-        if self.horizontal:
-            return position_x_y[0] // self.spacing
-        else:
-            return position_x_y[1] // self.spacing
+        return position_x_y[not self.horizontal] // self.spacing
 
     def add_child(self, child):
         super().add_child(child)
@@ -307,6 +328,9 @@ class Grid(SpriteNode):
     def remove_child(self, child):
         super().remove_child(child)
         self.dirty = 1
+
+    def add_tile(self, inst_class, *args, kwargs):
+        self.nodes.append(inst_class(*args, **kwargs))
 
     # These methods differ from the base methods - do not cascade to children
     def cascade_move_rect(self, dx, dy):
@@ -330,9 +354,9 @@ class SpriteGrid(Grid):
         super().__init__(node_props, group, initial_nodes_gen, horizontal, **kwargs)
         self.use_update_method = self.use_draw_method = True
 
-    def generate_grid(self, initial_nodes_gen):
-        for i, (inst_class, *args, kwargs) in enumerate(initial_nodes_gen):
-            node_props = NodeProperties(self, *self.index_to_position(i))
+    def populate_grid(self, initial_nodes_gen):
+        for (inst_class, *args, kwargs), rect in zip(initial_nodes_gen, self.tile_rects()):
+            node_props = NodeProperties(self, *rect)
             inst_class(node_props, self.grid_group, *args, **kwargs)
 
     def draw(self):
@@ -342,8 +366,7 @@ class SpriteGrid(Grid):
                     tile.draw()
 
             self.image.fill(self.style.get('background'))
-            for i, tile in enumerate(self.nodes):
-                correct_rect = Rect(*self.index_to_position(i))
+            for tile, correct_rect in zip(self.nodes, self.tile_rects()):
                 if tile.transform.rect() != correct_rect:
                     tile.transform.position = correct_rect.topleft
                     tile.transform.size = correct_rect.size

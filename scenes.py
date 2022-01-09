@@ -41,12 +41,19 @@ class ExampleHandling(Scene):
                                                  'Image clickable', self.toggle_button, image=image)
         self.mouse_handlers.append(toggle_visible_button)
 
-        self.test_entry = interface.TextEntry(NodeProperties(self, 25, 425, 350, 20), self.draw_group,
+        self.test_entry = interface.TextEntry(NodeProperties(self, 25, 25, 350, 20), self.draw_group,
                                               '12345', demo_callback, allow_characters='0123456789.',
                                               background=C_DARK)
 
         self.test_grid = interface.SpriteGrid(NodeProperties(self, 100, 200, 200, 200),
                                               self.draw_group, grid_example_generator(), background=C_LIGHT)
+
+        self._first_frame = True  # temporary testing measure
+
+    def update(self):
+        super().update()
+        if self._first_frame:
+            self._first_frame = False
 
     def toggle_button(self):
         self.demo_button.enabled = not self.demo_button.enabled

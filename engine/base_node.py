@@ -116,14 +116,6 @@ class Node:
             parent = parent.parent
         return parent
 
-    def remove(self):
-        if self in self.parent.nodes:
-            self.parent.nodes.remove(self)
-        self.transform.node = None
-        for child in self.nodes:
-            child.remove()
-        self.nodes.clear()
-
     @property
     def enabled(self) -> bool:
         return self._enabled
@@ -157,6 +149,13 @@ class Node:
         if self.nodes:
             for child in self.nodes:
                 child.cascade_move_rect(dx, dy)
+
+    def remove(self):
+        if self in self.parent.nodes:
+            self.parent.nodes.remove(self)
+        self.transform.node = None
+        for child in self.nodes:
+            child.remove()
 
 class SpriteNode(Node, pygame.sprite.DirtySprite):
     def __init__(self, node_props: NodeProperties, *groups, image=None, fill_color=None):

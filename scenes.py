@@ -27,19 +27,16 @@ class ExampleHandling(Scene):
 
         def demo_callback(*args):
             print(f'demo callback -> {args}')
-        
+
         self.demo_button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.draw_group,
                                             'Demo clickable', demo_callback, background=C_LIGHT)
-        self.mouse_handlers.append(self.demo_button)
 
         self.demo_button2 = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.draw_group,
                                              'Demo clickable 2', demo_callback, background=C_DARK)
-        self.mouse_handlers.append(self.demo_button2)
 
         image = pygame.image.load('Assets/Placeholder.png').convert()
         toggle_visible_button = interface.Button(NodeProperties(self, 100, 50, 32, 32), self.draw_group,
                                                  'Image clickable', self.toggle_button, image=image)
-        self.mouse_handlers.append(toggle_visible_button)
 
         self.test_entry = interface.TextEntry(NodeProperties(self, 25, 25, 350, 20), self.draw_group,
                                               '12345', demo_callback, allow_characters='0123456789.',
@@ -58,13 +55,6 @@ class ExampleHandling(Scene):
     def toggle_button(self):
         self.demo_button.enabled = not self.demo_button.enabled
         self.demo_button2.enabled = not self.demo_button2.enabled
-
-    def handle_events(self, pygame_events):
-        for event in pygame_events:
-            if event.type in interface.MOUSE_EVENTS:
-                for button in self.mouse_handlers:
-                    button.mouse_event(event)
-        self.test_entry.events(pygame_events)
 
 class ExampleTree(Scene):
     def __init__(self, screen, clock):

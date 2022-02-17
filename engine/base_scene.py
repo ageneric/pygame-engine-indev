@@ -17,7 +17,7 @@ class Scene:
         self.flag_new_scene = None
         self.flag_new_scene_args = []
         self.background_color = None
-        self.mouse_handlers = []
+        self.event_handlers = {}
 
     def update(self):
         for child in self.nodes:
@@ -38,18 +38,36 @@ class Scene:
         initialisation, set NodeProperties[0]. Do not use this method."""
         self.nodes.append(node)
         node.parent = self
+        if hasattr(node, 'event_handler'):
+            self.add_event_handler(node)
 
-    def remove_child(self, node):
-        node.remove()
-        if node in self.mouse_handlers:
-            self.mouse_handlers.remove(node)
+    def add_event_handler(self, node, additional_types=None):
+        event_types = getattr(node, 'event_handler', [])
+        if additional_types:
+            event_types = event_types + additional_types
 
-    def mouse_event(self, type, pos, **kwargs):
-        pass
-    def other_event(self, type, **kwargs):
-        pass
+        for event_type in event_types:
+            handler_list = self.event_handlers.get(event_type, None)
+            if handler_list is None:
+                self.event_handlers[event_type] = [node]
+            elif node not in handler_list:
+                handler_list.append(node)
+
+    def remove_event_handler(self, node, additional_types=None):
+        event_types = getattr(node, 'event_handler', [])
+        if additional_types:
+            event_types = event_types + additional_types
+
+        for event_type in event_types:
+            self.event_handlers[event_type].remove(node)
+
     def handle_events(self, pygame_events):
-        pass
+        for event in pygame_events:
+            nodes = self.event_handlers.get(event.type, None)
+            if nodes:
+                for node in nodes:
+                    if node.enabled:
+                        node.event(event)
 
     def create_draw_group(self, background_color):
         """Sets self.draw_group to a new LayeredDirty group and fills

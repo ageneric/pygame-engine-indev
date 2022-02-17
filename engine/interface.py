@@ -1,11 +1,13 @@
 import pygame
-from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, Rect
+from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, KEYDOWN, KEYUP
 from math import sqrt
 
 from .base_node import SpriteNode, NodeProperties
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
+KEYBOARD_EVENTS = (KEYDOWN, KEYUP)
+MOUSE_AND_KEYBOARD_EVENTS = MOUSE_EVENTS + KEYBOARD_EVENTS
 
 COLOR_DEFAULT = (191, 131, 191)
 BACKGROUND_DEFAULT = (20, 20, 24)
@@ -81,8 +83,8 @@ class Style:
         return self.get(base_name + State.modifier[state])
 
 class State:
-    idle, hovered, selected, blocked = range(4)
-    modifier = '', '_hovered', '_selected', '_blocked'
+    idle, hovered, selected, stopped = range(4)
+    modifier = '', '_hovered', '_selected', '_stopped'
 
 
 class Button(SpriteNode):
@@ -91,6 +93,8 @@ class Button(SpriteNode):
     To add parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     """
+    event_handler = MOUSE_EVENTS
+
     def __init__(self, node_props, group, message='', callback=None, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
@@ -104,12 +108,12 @@ class Button(SpriteNode):
     def pre_render_text(self):
         return text.render(self.message, color=self.style.get('color'), save_sprite=True)
 
-    def mouse_event(self, event):
+    def event(self, event):
         """Pass each pygame mouse event to the button,
         so it can update (i.e. if hovered or clicked).
         For speed, only call if `event.type in MOUSE_EVENTS`.
         """
-        if self.state == State.blocked or not self._visible:
+        if self.state == State.stopped or not self._visible:
             return
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
@@ -166,6 +170,8 @@ class TextEntry(SpriteNode):
     it is recommended to inherit from this class.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
     """
+    event_handler = MOUSE_AND_KEYBOARD_EVENTS
+
     def __init__(self, node_props, group, default_text='', enter_callback=None,
                  edit_callback=None, allow_characters=None, **kwargs):
         super().__init__(node_props, group)
@@ -187,40 +193,39 @@ class TextEntry(SpriteNode):
         if self.edit_callback is not None:
             self.edit_callback(self.text)
 
-    def events(self, pygame_events):
-        if self.state == State.blocked or not self._visible:
+    def event(self, event):
+        if self.state == State.stopped or not self._visible:
             return
 
         last_state = self.state
         last_text = self.text
 
-        for event in pygame_events:
-            if event.type in MOUSE_EVENTS:
-                mouse_over = self.rect.collidepoint(event.pos)
+        if event.type in MOUSE_EVENTS:
+            mouse_over = self.rect.collidepoint(event.pos)
 
-                if mouse_over:
-                    if event.type == MOUSEBUTTONDOWN:
-                        self.state = State.selected
-                    elif self.state == State.idle:
-                        self.state = State.hovered
-                elif self.state == State.hovered or event.type == MOUSEBUTTONDOWN:
-                    self.state = State.idle
+            if mouse_over:
+                if event.type == MOUSEBUTTONDOWN:
+                    self.state = State.selected
+                elif self.state == State.idle:
+                    self.state = State.hovered
+            elif self.state == State.hovered or event.type == MOUSEBUTTONDOWN:
+                self.state = State.idle
 
-            elif self.state == State.selected and event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
-                    self.on_enter()
-                elif event.mod & pygame.KMOD_CTRL:
-                    if event.key == pygame.K_BACKSPACE:
-                        self.text = ''
-                elif event.key == pygame.K_BACKSPACE:
-                    self.text = self.text[:-1]
+        elif self.state == State.selected and event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
+                self.on_enter()
+            elif event.mod & pygame.KMOD_CTRL:
+                if event.key == pygame.K_BACKSPACE:
+                    self.text = ''
+            elif event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            else:
+                if pygame.version.vernum[0] >= 2:
+                    key = event.unicode
                 else:
-                    if pygame.version.vernum[0] >= 2:
-                        key = event.unicode
-                    else:
-                        key = chr(event.key) if 0x20 <= event.key <= 0x7e else ''
-                    if key and (self.allow_characters is None or key in self.allow_characters):
-                        self.text += key
+                    key = chr(event.key) if 0x20 <= event.key <= 0x7e else ''
+                if key and (self.allow_characters is None or key in self.allow_characters):
+                    self.text += key
 
         if last_state != self.state or last_text != self.text:
             self.dirty = 1
@@ -250,7 +255,8 @@ class Grid(SpriteNode):
     If tiles have draw() or update() methods, they will be called only if
     initial tiles of its type are supplied. Alternatively, set the properties
     self.use_draw_method or self.use_update_method = True by subclassing Grid.
-    The keyword arguments spacing and background change the appearance."""
+    The keyword arguments spacing and background change the appearance.
+    """
     is_origin = 0
 
     def __init__(self, node_props, group, initial_nodes_gen=None, horizontal=False, spacing=20, **kwargs):
@@ -303,13 +309,16 @@ class Grid(SpriteNode):
             yield position
             position[index_x_or_y] += self.spacing
 
-    def forward_to_position(self, forward_pixels):
+    def forward_to_position(self, forward_pixels=0):
         if self.horizontal:
             return forward_pixels, 0
         else:
             return 0, forward_pixels
 
-    def forward_to_rect(self, forward_pixels):
+    def index_to_position(self, index):
+        return self.forward_to_position(index * self.spacing)
+
+    def forward_to_rect(self, forward_pixels=0):
         if self.horizontal:
             return pygame.Rect(forward_pixels, 0, self.spacing, self.transform.height)
         else:
@@ -322,15 +331,12 @@ class Grid(SpriteNode):
         return position_x_y[not self.horizontal] // self.spacing
 
     def add_child(self, child):
-        super().add_child(child)
+        self.nodes.append(child)
         self.dirty = 1
 
-    def remove_child(self, child):
-        super().remove_child(child)
+    def remove_at_index(self, index):
         self.dirty = 1
-
-    def add_tile(self, inst_class, *args, kwargs):
-        self.nodes.append(inst_class(*args, **kwargs))
+        return self.nodes.pop(index)
 
     # These methods differ from the base methods - do not cascade to children
     def cascade_move_rect(self, dx, dy):
@@ -372,9 +378,14 @@ class SpriteGrid(Grid):
                     tile.transform.size = correct_rect.size
             self.grid_group.draw(self.image)
 
+    def add_child(self, child):
+        SpriteNode.add_child(self, child)
+        self.dirty = 1
+
     # Undo the overrides in Grid - do cascade transform changes to children
     def cascade_move_rect(self, dx, dy):
         SpriteNode.cascade_move_rect(self, dx, dy)
 
     def cascade_set_visible(self, set_visible):
         SpriteNode.cascade_set_visible(self, set_visible)
+

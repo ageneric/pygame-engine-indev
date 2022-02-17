@@ -84,13 +84,10 @@ class Editor(Scene):
         return rects
 
     def handle_events(self, pygame_events):
-        for event in pygame_events:
-            if event.type in interface.MOUSE_EVENTS:
-                for handler in self.mouse_handlers:
-                    handler.mouse_event(event)
+        super().handle_events(pygame_events)
 
-            elif event.type == pygame.VIDEORESIZE:
-                self.resize()
+        if any(event.type == pygame.VIDEORESIZE for event in pygame_events):
+            self.resize()
 
         # Not an ideal approach; the scene should believe it's at (0, 0), but
         # this means its event checks will be offset. To compensate, the mouse

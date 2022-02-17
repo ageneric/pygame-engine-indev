@@ -2,8 +2,8 @@ import pygame
 from collections import namedtuple
 
 NodeProperties = namedtuple('NodeProperties', ['parent',
-                            'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'rotation', 'enabled'],
-                            defaults=[0, 0, 0, 0, 0, 0, 0, True])
+                            'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled'],
+                            defaults=[0, 0, 0, 0, 0, 0, True])
 
 class Anchor:
     top = left = 0.0
@@ -11,16 +11,15 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
-    __slots__ = 'node', 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'rotation'
+    __slots__ = 'node', 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y'
 
-    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, rotation=0.0, node=None):
+    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, node=None):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.anchor_x = anchor_x
         self.anchor_y = anchor_y
-        self.rotation = rotation
         self.node = node
 
     def __repr__(self) -> str:
@@ -70,9 +69,11 @@ class Node:
             raise AttributeError(f'Incorrect type for parent, NodeProperties[0] (got {node_props[0]})')
         self.parent = node_props[0]
         self.parent.add_child(self)
-        self.transform = Transform(*node_props[1:7], node=self)
-        self._enabled = node_props[8]
+        self.transform = Transform(*node_props[1:6], node=self)
+        self._enabled = node_props[7]
 
+        if hasattr(self, 'event_handler'):
+            self.scene().add_event_handler(self)
         self.rect = self.transform.rect()
         if not hasattr(self.parent, 'is_origin'):
             self.rect.move_ip(self.parent.rect.x, self.parent.rect.y)
@@ -95,12 +96,6 @@ class Node:
         initialisation, set NodeProperties[0]. Do not use this method."""
         self.nodes.append(child)
         child.parent = self
-
-    def remove_child(self, child):
-        if child in self.nodes:
-            child.remove()
-        else:
-            print(f'Engine warning: could not remove child {child} as it could not be found.')
 
     def world_rect(self) -> pygame.Rect:
         rect = self.transform.rect()
@@ -154,6 +149,8 @@ class Node:
         if self in self.parent.nodes:
             self.parent.nodes.remove(self)
         self.transform.node = None
+        if hasattr(self, 'event_handler'):
+            self.scene().remove_event_handler(self)
         for child in self.nodes:
             child.remove()
 
@@ -203,6 +200,6 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
 
     def resize_rect(self):
         Node.resize_rect(self)
-        self.image = pygame.Surface(self.transform.size)
+        self.image = pygame.Surface(self.transform.size, self.image.get_flags(), self.image)
         if self.dirty < 2:
             self.dirty = 1

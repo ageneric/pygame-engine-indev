@@ -2,7 +2,7 @@ import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
 from engine.base_node import SpriteNode, NodeProperties
-from engine.interface import Grid, Style, Toggle, modify_color
+from engine.interface import Grid, Style, Toggle, brighten_color
 
 import weakref
 
@@ -28,14 +28,15 @@ class TreeTabGrid(Grid):
     """This tab visualises the tree of nodes for the user scene.
     It maintains a linearised version of the tree as self.linear_copy."""
     def __init__(self, node_props, group, tree, icon_sheet, **kwargs):
+        super().__init__(node_props, group, **kwargs)
+
         image_node = icon_sheet.load_image((0, 0, 1, 1), 8)
         image_sprite_node = icon_sheet.load_image((1, 0, 1, 1), 8)
-        self.icon_images = [[image_node, image_node.copy()],
-                            [image_sprite_node, image_sprite_node.copy()]]
-        tint_surface(self.icon_images[0][0], (110, 100, 100))
-        tint_surface(self.icon_images[1][0], (110, 100, 100))
+        self.icon_images = ((image_node, image_sprite_node),
+                            (image_node.copy(), image_sprite_node.copy()))
+        for icon in self.icon_images[0]:
+            tint_surface(icon, brighten_color(self.style.get('color'), -18))
 
-        super().__init__(node_props, group, **kwargs)
         self.tree = tree
         self.linear_copy = self.nodes  # alias
         self.get_linear_copy(self.tree)
@@ -112,9 +113,9 @@ class TreeTabGrid(Grid):
     def redraw_entry(self, entry, depth):
         entry.image.fill(self.style.get('background'))
         if entry.reference_visible >= 0:
-            icon_image = self.icon_images[1][entry.reference_enabled]
+            icon_image = self.icon_images[entry.reference_enabled][1]
         else:
-            icon_image = self.icon_images[0][entry.reference_enabled]
+            icon_image = self.icon_images[entry.reference_enabled][0]
 
         entry.image.blit(icon_image, (2+depth*8, self.spacing - 16))
 
@@ -123,7 +124,7 @@ class TreeTabGrid(Grid):
                   color=self.style.get('color'))
         node_name = type(entry.weak_reference()).__name__
         if entry.reference_visible == 0:
-            name_color = modify_color(self.style.get('color'), -18)
+            name_color = brighten_color(self.style.get('color'), -18)
         else:
             name_color = string_color(node_name)
         text.draw(entry.image, node_name, (depth*8 + 32, 0), color=name_color)
@@ -144,12 +145,12 @@ class TreeTab(SpriteNode):
         self.style = Style.from_kwargs(kwargs)
 
         self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 300),
-            group, tree, icon_sheet, color=self.style.get('color'),
-            background=modify_color(self.style.get('background'), 5))
+                                group, tree, icon_sheet, color=self.style.get('color'),
+                                background=brighten_color(self.style.get('background'), 5))
 
         self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
-            group, "Nodes v", background=modify_color(self.style.get('background'), -5),
-            style=self.style, callback=self.toggle_grid, checked=self.grid.enabled)
+                             group, "Nodes v", background=brighten_color(self.style.get('background'), -5),
+                             style=self.style, callback=self.toggle_grid, checked=self.grid.enabled)
 
     def draw(self):
         super().draw()

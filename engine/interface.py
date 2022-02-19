@@ -11,17 +11,16 @@ MOUSE_AND_KEYBOARD_EVENTS = MOUSE_EVENTS + KEYBOARD_EVENTS
 
 COLOR_DEFAULT = (191, 131, 191)
 BACKGROUND_DEFAULT = (20, 20, 24)
-NO_VALUE = object()
 
-def modify_color_component(color_component, brightness):
+def brighten_color_component(color_component, brightness):
     """Lighten or darken a single rgb value by the perceived brightness percentage."""
     color_component = round(max(sqrt(color_component) + brightness/6.25, 0)**2)
     color_component = min(max(color_component, 0), 255)  # clamp value between 0 and 255
     return color_component
 
-def modify_color(color, brightness: float):
+def brighten_color(color, brightness: float):
     """Lighten or darken an (r, g, b) colour by the perceived brightness percentage."""
-    return tuple(modify_color_component(r_g_b, brightness) for r_g_b in color)
+    return tuple(brighten_color_component(r_g_b, brightness) for r_g_b in color)
 
 def saturate_color_component(color_component, mean, saturation):
     """Saturate or desaturate a single rgb value by the given multiplier, where
@@ -39,57 +38,78 @@ def saturate_color(color, saturation: float):
     mean = sum(r_g_b for r_g_b in color) / 3
     return tuple(saturate_color_component(r_g_b, mean, saturation) for r_g_b in color)
 
+class State:
+    idle, hovered, selected, blocked = range(4)
+
 class Style:
+    """Behaves like a dictionary, usually used to hold graphical attributes.
+    Interface classes may use a Style and/or keyword arguments, for example:
+      Button(..., color=(90, 90, 0), color_two=(10, 10, 0))
+    May be replaced by:
+      my_style = Style(color=(90, 90, 0))
+      Button(..., style=my_style, color_two=(10, 10, 0))
+
+    Every Style includes default values for 'color', 'background' and 'font'.
+    Keys of the form 'base_name_modifier' default to 'base_name'.
+    The modifiers 'hovered', 'selected', 'blocked' are special cases of this.
+    """
+    state_modifier = '', '_hovered', '_selected', '_blocked'
+    NO_VALUE = object()
+
     def __init__(self, **kwargs):
         self.dict = {'color': COLOR_DEFAULT, 'background': BACKGROUND_DEFAULT,
                      'font': text.FONT_DEFAULT}
         self.dict.update(kwargs)
 
     def __repr__(self) -> str:
-        return str(self.dict)
+        return f'Style({str(self.dict)[1:-1].replace(": ", "=")})'
 
     @classmethod
     def from_kwargs(cls, kwargs):
-        if kwargs.get('style', False):
-            style = kwargs.pop('style')
-            if not kwargs:
-                return style
-            else:
-                style_copy = cls(**style.dict)
-                style_copy.dict.update(kwargs)
-                return style_copy
-        else:
+        if 'style' not in kwargs:
             return cls(**kwargs)
 
-    def get(self, name: str, default=NO_VALUE):
+        style = kwargs.pop('style')
+        if kwargs:
+            style_copy = cls(**style.dict)
+            style_copy.dict.update(kwargs)
+            return style_copy
+        else:
+            return style
+
+    def get(self, name: str, default=None):
         if name in self.dict:
             return self.dict[name]
-        elif name.count('_') == 1:
-            base_name, modifier = name.split('_', 1)
-            color = self.get(base_name)
-            if isinstance(color, pygame.Color) or type(color) == tuple:
-                if modifier == 'hovered' and base_name != 'color':
-                    color = modify_color(color, -5)
-                elif modifier == 'selected' and base_name != 'color':
-                    color = modify_color(color, 5)
-                elif modifier == 'blocked':
-                    color = modify_color(saturate_color(color, -10), 0.25)
-            return color
-        if default != NO_VALUE:
+        elif '_' in name:
+            base_name, modifier = name.rsplit('_', 1)
+            value = self.get(base_name, Style.NO_VALUE)
+            if isinstance(value, pygame.Color) or type(value) == tuple:
+                value = self.modified_color(value, modifier, base_name)
+            return value
+        if default is not Style.NO_VALUE:
             return default
         raise KeyError(f'Not a key and not a modifier of a key: {name} in {self.dict}')
 
+    @staticmethod
+    def modified_color(color, modifier, base_name):
+        if modifier == 'hovered' and base_name != 'color':
+            return brighten_color(color, -5)
+        elif modifier == 'selected' and base_name != 'color':
+            return brighten_color(color, 5)
+        elif modifier == 'blocked':
+            return brighten_color(saturate_color(color, -10), 0.25)
+        return color
+
+    def __index__(self, name):
+        return self.get(name, Style.NO_VALUE)
+
     def get_by_state(self, base_name, state):
-        return self.get(base_name + State.modifier[state])
-
-class State:
-    idle, hovered, selected, stopped = range(4)
-    modifier = '', '_hovered', '_selected', '_stopped'
-
+        return self.get(base_name + self.state_modifier[state], Style.NO_VALUE)
 
 class Button(SpriteNode):
-    """A button. The keyword arguments color and background change the appearance.
-    The argument callback is a function taking no parameters. It is called on click.
+    """A rectangular button. The argument callback is a function taking
+    no parameters called on click.
+    Takes the keyword arguments color, background and font, or a style object.
     To add parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     """
@@ -113,17 +133,17 @@ class Button(SpriteNode):
         so it can update (i.e. if hovered or clicked).
         For speed, only call if `event.type in MOUSE_EVENTS`.
         """
-        if self.state == State.stopped or not self._visible:
+        if self.state == State.blocked or not self._visible:
             return
+
         last_state = self.state
-        mouse_over = self.rect.collidepoint(event.pos)
         # Only react to a click on mouse-up (helps avoid an accidental click).
-        if self.state == State.selected and event.type == MOUSEBUTTONUP:
-            if mouse_over and self.callback:
+        if last_state == State.selected and event.type == MOUSEBUTTONUP:
+            if self.callback and self.rect.collidepoint(event.pos):
                 self.on_click()
             self.state = State.idle
 
-        if mouse_over:
+        if self.rect.collidepoint(event.pos):
             if event.type == MOUSEBUTTONDOWN:
                 self.state = State.selected
             elif self.state == State.idle:
@@ -140,7 +160,7 @@ class Button(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            if self.style.get('image', False):
+            if self.style.get('image'):
                 self.image.blit(self.style.get('image'), (0, 0))
             else:
                 self.image.fill(self.style.get_by_state('background', self.state))
@@ -149,7 +169,7 @@ class Button(SpriteNode):
                 position = (self.transform.width / 2, self.transform.height / 2)
                 color = self.style.get_by_state('color', self.state)
                 text.draw(self.image, self.message, position,
-                          font=self.style.get('font', text.FONT_DEFAULT), color=color, justify=True)
+                          font=self.style.get('font'), color=color, justify=True)
 
 class Toggle(Button):
     def __init__(self, node_props, group, message='', callback=None, checked=False, **kwargs):
@@ -163,9 +183,9 @@ class Toggle(Button):
 
 class TextEntry(SpriteNode):
     """A single line rectangular box that can be typed in.
-    The keyword arguments color and background change the appearance.
     The arguments enter_callback(text) and edit_callback(text) are functions
     called when editing is completed and when the text changes, respectively.
+    Takes the keyword arguments color, background and font, or a style object.
     To add more parameters to the callback or take additional styles,
     it is recommended to inherit from this class.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
@@ -194,36 +214,36 @@ class TextEntry(SpriteNode):
             self.edit_callback(self.text)
 
     def event(self, event):
-        if self.state == State.stopped or not self._visible:
+        if self.state == State.blocked or not self._visible:
             return
 
         last_state = self.state
         last_text = self.text
 
         if event.type in MOUSE_EVENTS:
-            mouse_over = self.rect.collidepoint(event.pos)
-
-            if mouse_over:
+            if self.rect.collidepoint(event.pos):
                 if event.type == MOUSEBUTTONDOWN:
                     self.state = State.selected
-                elif self.state == State.idle:
+                elif last_state == State.idle:
                     self.state = State.hovered
-            elif self.state == State.hovered or event.type == MOUSEBUTTONDOWN:
+            elif last_state == State.hovered or event.type == MOUSEBUTTONDOWN:
                 self.state = State.idle
 
-        elif self.state == State.selected and event.type == pygame.KEYDOWN:
+        elif last_state == State.selected and event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
                 self.on_enter()
-            elif event.mod & pygame.KMOD_CTRL:
-                if event.key == pygame.K_BACKSPACE:
-                    self.text = ''
             elif event.key == pygame.K_BACKSPACE:
-                self.text = self.text[:-1]
+                if event.mod & pygame.KMOD_CTRL:
+                    self.text = ''
+                elif self.text != '':
+                    self.text = self.text[:-1]
             else:
                 if pygame.version.vernum[0] >= 2:
                     key = event.unicode
-                else:
+                else:  # rudimentary support for pygame 1
                     key = chr(event.key) if 0x20 <= event.key <= 0x7e else ''
+                    if key.isalpha() and event.mod & (pygame.KMOD_SHIFT | pygame.KMOD_CAPS):
+                        key = chr(event.key - 0x20)  # use capitalised key
                 if key and (self.allow_characters is None or key in self.allow_characters):
                     self.text += key
 
@@ -255,7 +275,7 @@ class Grid(SpriteNode):
     If tiles have draw() or update() methods, they will be called only if
     initial tiles of its type are supplied. Alternatively, set the properties
     self.use_draw_method or self.use_update_method = True by subclassing Grid.
-    The keyword arguments spacing and background change the appearance.
+    The keyword argument background, or a style object, is the background color.
     """
     is_origin = 0
 
@@ -388,4 +408,3 @@ class SpriteGrid(Grid):
 
     def cascade_set_visible(self, set_visible):
         SpriteNode.cascade_set_visible(self, set_visible)
-

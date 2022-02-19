@@ -2,7 +2,7 @@ import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
 from engine.base_node import SpriteNode, NodeProperties
-from engine.interface import Grid, Style, Toggle, brighten_color
+from engine.interface import GridList, Scrollbar, Toggle, Style, brighten_color, MOUSE_EVENTS
 
 import weakref
 
@@ -16,17 +16,20 @@ def string_color(name: str):
     return color
 
 class LinearEntry:
-    __slots__ = 'weak_reference', 'reference_visible', 'reference_enabled', 'image'
+    __slots__ = 'weak_reference', 'reference_visible', 'reference_enabled', 'image', 'depth'
 
-    def __init__(self, reference_node, image_size):
+    def __init__(self, reference_node, image_size, depth):
         self.weak_reference = weakref.ref(reference_node)
         self.reference_visible = getattr(reference_node, 'visible', -1)
         self.reference_enabled = getattr(reference_node, 'enabled', -1)
         self.image = pygame.Surface(image_size)
+        self.depth = depth
 
-class TreeTabGrid(Grid):
+class TreeTabGrid(GridList):
     """This tab visualises the tree of nodes for the user scene.
     It maintains a linearised version of the tree as self.linear_copy."""
+    event_handler = MOUSE_EVENTS
+
     def __init__(self, node_props, group, tree, icon_sheet, **kwargs):
         super().__init__(node_props, group, **kwargs)
 
@@ -38,7 +41,7 @@ class TreeTabGrid(Grid):
             tint_surface(icon, brighten_color(self.style.get('color'), -18))
 
         self.tree = tree
-        self.linear_copy = self.nodes  # alias
+        self.linear_copy = self.tiles  # alias
         self.get_linear_copy(self.tree)
 
     def get_linear_copy(self, tree, depth=0):
@@ -47,8 +50,8 @@ class TreeTabGrid(Grid):
             self.get_linear_copy(node, depth + 1)
 
     def new_entry(self, reference_node, depth):
-        entry = LinearEntry(reference_node, self.forward_to_rect(0).size)
-        self.redraw_entry(entry, depth)
+        entry = LinearEntry(reference_node, self.forward_to_rect(0).size, depth)
+        self.redraw_entry(entry)
         return entry
 
     def update(self):
@@ -78,22 +81,20 @@ class TreeTabGrid(Grid):
         start_index = index_list
         len_list = len(self.linear_copy)
 
-        # Get the properties of the target node outside of the loop for speed
-        node_visible = getattr(node, 'visible', -1)
-        node_enabled = getattr(node, 'enabled', - 1)
-
         # Loop until the node is found or the end of the list is reached
         found_node = False
         while not found_node and index_list < len_list:
             copy_node = self.linear_copy[index_list]
             if node is copy_node.weak_reference():
+                node_visible = getattr(node, 'visible', -1)
+                node_enabled = getattr(node, 'enabled', - 1)
                 # If the entry corresponding to a node is found, ensure that
                 # its properties still match - redraw it if they have changed
                 if (node_enabled != copy_node.reference_enabled
                         or node_visible != copy_node.reference_visible):
                     copy_node.reference_enabled = node_enabled
                     copy_node.reference_visible = node_visible
-                    self.redraw_entry(copy_node, depth)
+                    self.redraw_entry(copy_node)
                 found_node = True  # exit loop
             else:
                 index_list += 1
@@ -110,32 +111,41 @@ class TreeTabGrid(Grid):
             del self.linear_copy[start_index:index_list]
             self.dirty = 1
 
-    def redraw_entry(self, entry, depth):
+    def redraw_entry(self, entry):
         entry.image.fill(self.style.get('background'))
         if entry.reference_visible >= 0:
             icon_image = self.icon_images[entry.reference_enabled][1]
         else:
             icon_image = self.icon_images[entry.reference_enabled][0]
 
-        entry.image.blit(icon_image, (2+depth*8, self.spacing - 16))
+        entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing - 16))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        text.draw(entry.image, state, (depth*8 + 12, 0),
+        text.draw(entry.image, state, (entry.depth*8 + 12, 0),
                   color=self.style.get('color'))
         node_name = type(entry.weak_reference()).__name__
         if entry.reference_visible == 0:
             name_color = brighten_color(self.style.get('color'), -18)
         else:
             name_color = string_color(node_name)
-        text.draw(entry.image, node_name, (depth*8 + 32, 0), color=name_color)
+        text.draw(entry.image, node_name, (entry.depth*8 + 32, 0), color=name_color)
         self.dirty = 1
 
     def resize_rect(self):
         super().resize_rect()
-        for tile in self.nodes:
+        for tile in self.tiles:
             if hasattr(tile, 'image'):
                 tile.image = pygame.Surface(self.forward_to_rect(0).size)
-                tile.reference_enabled = -2  # force a redraw
+                self.redraw_entry(tile)
+        if self.nodes:
+            self.nodes[0].dirty = 1  # reposition the scrollbar
+
+    def event(self, event):
+        if self.rect.collidepoint(event.pos):
+            index = self.position_to_index((event.pos[0] - self.rect.x,
+                                            event.pos[1] - self.rect.y))
+            if 0 <= index < len(self.tiles):
+                pass
 
 class TreeTab(SpriteNode):
     _layer = 0
@@ -144,9 +154,12 @@ class TreeTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 300),
+        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 150),
                                 group, tree, icon_sheet, color=self.style.get('color'),
                                 background=brighten_color(self.style.get('background'), 5))
+
+        self.scrollbar = Scrollbar(NodeProperties(self.grid, width=2), group,
+                                   color_scroll=brighten_color(self.style.get('background'), 15))
 
         self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
                              group, "Nodes v", background=brighten_color(self.style.get('background'), -5),

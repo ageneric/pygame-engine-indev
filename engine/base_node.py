@@ -11,7 +11,7 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
-    __slots__ = 'node', 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y'
+    __slots__ = 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'node'
 
     def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, node=None):
         self.x = x
@@ -26,8 +26,8 @@ class Transform:
         return f'(XY {self.x}, {self.y}, WH {self.width}, {self.height}, aXY {self.anchor_x}, {self.anchor_y})'
 
     @classmethod
-    def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0, rotation=0.0):
-        return cls(rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y, rotation)
+    def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0):
+        return cls(rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y)
 
     def rect(self):
         return pygame.Rect(int(self.x - self.width * self.anchor_x),
@@ -35,8 +35,9 @@ class Transform:
 
     def __setattr__(self, name, val):  # may alternatively be achieved using properties
         object.__setattr__(self, name, val)
-        if hasattr(self, 'node') and name in ('x', 'y', 'width', 'height'):
-            self.node.transform_on_update()
+        node = getattr(self, 'node', None)
+        if node is not None and name in ('x', 'y', 'width', 'height'):
+            node.transform_update(name)
 
     # Getters and setters for transform properties
     @property
@@ -65,10 +66,10 @@ class Transform:
 
 class Node:
     def __init__(self, node_props: NodeProperties):
-        if not hasattr(node_props[0], 'add_child'):
-            raise AttributeError(f'Incorrect type for parent, NodeProperties[0] (got {node_props[0]})')
         self.parent = node_props[0]
-        self.parent.add_child(self)
+        if not hasattr(self.parent, 'nodes') and hasattr(self.parent, 'rect'):
+            raise AttributeError(f'Missing attributes on parent, NodeProperties[0] (got type {node_props[0]})')
+        self.parent.nodes.append(self)
         self.transform = Transform(*node_props[1:6], node=self)
         self._enabled = node_props[7]
 
@@ -90,12 +91,6 @@ class Node:
             for child in self.nodes:
                 if child.enabled:
                     child.draw()
-
-    def add_child(self, child):
-        """Called internally. To specify the parent of a Node on
-        initialisation, set NodeProperties[0]. Do not use this method."""
-        self.nodes.append(child)
-        child.parent = self
 
     def world_rect(self) -> pygame.Rect:
         rect = self.transform.rect()
@@ -120,13 +115,14 @@ class Node:
         self._enabled = set_enable
         self.cascade_set_visible(set_enable)
 
-    def transform_on_update(self):
-        if hasattr(self.parent, 'is_origin'):
-            dx, dy = self.transform.x - self.rect.x, self.transform.y - self.rect.y
-        else:
-            dx, dy = self.transform.x - self.rect.x + self.parent.rect.x, self.transform.y - self.rect.y + self.parent.rect.y
-        if dx or dy:
-            self.cascade_move_rect(dx, dy)
+    def transform_update(self, name):
+        if name in ('x', 'y'):
+            if hasattr(self.parent, 'is_origin'):
+                dx, dy = self.transform.x - self.rect.x, self.transform.y - self.rect.y
+            else:
+                dx, dy = self.transform.x - self.rect.x + self.parent.rect.x, self.transform.y - self.rect.y + self.parent.rect.y
+            if dx != 0 or dy != 0:
+                self.cascade_move_rect(dx, dy)
         else:
             self.resize_rect()
 
@@ -181,7 +177,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         visible = self._enabled
         parent = self.parent
         while visible and isinstance(parent, Node):
-            visible = (not hasattr(parent, 'visible') or parent.visible) and visible
+            visible = getattr(parent, 'visible', True) and visible
             parent = parent.parent
         return visible
 

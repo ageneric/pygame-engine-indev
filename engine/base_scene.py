@@ -5,7 +5,7 @@ class Scene:
     once per frame. To switch scene, the new scene flag
     is set to the next scene (detect this in main loop).
     """
-    is_origin = 0
+    is_origin = 'Scene'
 
     def __init__(self, screen, clock):
         self.screen = screen
@@ -32,14 +32,6 @@ class Scene:
             return self.draw_group.draw(self.screen)
         else:
             return None
-
-    def add_child(self, node):
-        """Called internally. To specify the parent of a Node on
-        initialisation, set NodeProperties[0]. Do not use this method."""
-        self.nodes.append(node)
-        node.parent = self
-        if hasattr(node, 'event_handler'):
-            self.add_event_handler(node)
 
     def add_event_handler(self, node, additional_types=None):
         event_types = getattr(node, 'event_handler', [])

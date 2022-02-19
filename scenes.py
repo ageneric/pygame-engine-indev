@@ -42,7 +42,7 @@ class ExampleHandling(Scene):
                                               '12345', demo_callback, allow_characters='0123456789.',
                                               background=C_DARK)
 
-        self.test_grid = interface.SpriteGrid(NodeProperties(self, 100, 200, 200, 200),
+        self.test_grid = interface.SpriteList(NodeProperties(self, 100, 200, 200, 200),
                                               self.draw_group, grid_example_generator(), background=C_LIGHT)
 
         self._first_frame = True  # temporary testing measure

@@ -51,13 +51,17 @@ class Scene:
             event_types = event_types + additional_types
 
         for event_type in event_types:
-            self.event_handlers[event_type].remove(node)
+            if node in self.event_handlers[event_type]:
+                self.event_handlers[event_type].remove(node)
+            else:
+                print(f'Engine warning: could not find {node} when removing'
+                      + ' its event handler. It may have been deleted already.')
 
     def handle_events(self, pygame_events):
         for event in pygame_events:
-            nodes = self.event_handlers.get(event.type, None)
-            if nodes:
-                for node in nodes:
+            event_handler_nodes = self.event_handlers.get(event.type, None)
+            if event_handler_nodes:
+                for node in event_handler_nodes:
                     if node.enabled:
                         node.event(event)
 

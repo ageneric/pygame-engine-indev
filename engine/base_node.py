@@ -3,7 +3,7 @@ from collections import namedtuple
 
 NodeProperties = namedtuple('NodeProperties', ['parent',
                             'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled'],
-                            defaults=[0, 0, 0, 0, 0, 0, True])
+                            defaults=[0, 0, 0, 0, 0.0, 0.0, True])
 
 class Anchor:
     top = left = 0.0
@@ -67,8 +67,8 @@ class Transform:
 class Node:
     def __init__(self, node_props: NodeProperties):
         self.parent = node_props[0]
-        if not hasattr(self.parent, 'nodes') and hasattr(self.parent, 'rect'):
-            raise AttributeError(f'Missing attributes on parent, NodeProperties[0] (got type {node_props[0]})')
+        if not hasattr(self.parent, 'nodes') and not hasattr(self.parent, 'rect'):
+            raise AttributeError(f'Missing attributes on parent, NodeProperties[0] (got {node_props[0]})')
         self.parent.nodes.append(self)
         self.transform = Transform(*node_props[1:6], node=self)
         self._enabled = node_props[7]
@@ -147,16 +147,16 @@ class Node:
         self.transform.node = None
         if hasattr(self, 'event_handler'):
             self.scene().remove_event_handler(self)
-        for child in self.nodes:
-            child.remove()
+        for i in range(len(self.nodes)):
+            self.nodes[0].remove()
 
 class SpriteNode(Node, pygame.sprite.DirtySprite):
     def __init__(self, node_props: NodeProperties, *groups, image=None, fill_color=None):
         if groups and isinstance(groups[0], pygame.sprite.AbstractGroup):
             pygame.sprite.DirtySprite.__init__(self, *groups)
         else:
-            print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.\n'
-                  + 'This may be because the "group" parameter was missed.')
+            print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.'
+                  + '\nThis may be because the "group" parameter was missed.')
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)

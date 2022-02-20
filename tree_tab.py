@@ -40,6 +40,8 @@ class TreeTabGrid(GridList):
         for icon in self.icon_images[0]:
             tint_surface(icon, brighten_color(self.style.get('color'), -18))
 
+        self.selected_entry = None
+        self.hovered_entry = None
         self.tree = tree
         self.linear_copy = self.tiles  # alias
         self.get_linear_copy(self.tree)
@@ -51,7 +53,7 @@ class TreeTabGrid(GridList):
 
     def new_entry(self, reference_node, depth):
         entry = LinearEntry(reference_node, self.forward_to_rect(0).size, depth)
-        self.redraw_entry(entry)
+        self.entry_redraw(entry)
         return entry
 
     def update(self):
@@ -94,7 +96,7 @@ class TreeTabGrid(GridList):
                         or node_visible != copy_node.reference_visible):
                     copy_node.reference_enabled = node_enabled
                     copy_node.reference_visible = node_visible
-                    self.redraw_entry(copy_node)
+                    self.entry_redraw(copy_node)
                 found_node = True  # exit loop
             else:
                 index_list += 1
@@ -111,13 +113,19 @@ class TreeTabGrid(GridList):
             del self.linear_copy[start_index:index_list]
             self.dirty = 1
 
-    def redraw_entry(self, entry):
-        entry.image.fill(self.style.get('background'))
+    def entry_redraw(self, entry):
+        if entry == self.selected_entry:
+            background = self.style.get('background_selected')
+        elif entry == self.hovered_entry:
+            background = self.style.get('background_hovered')
+        else:
+            background = self.style.get('background')
         if entry.reference_visible >= 0:
             icon_image = self.icon_images[entry.reference_enabled][1]
         else:
             icon_image = self.icon_images[entry.reference_enabled][0]
 
+        entry.image.fill(background)
         entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing - 16))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
@@ -136,7 +144,7 @@ class TreeTabGrid(GridList):
         for tile in self.tiles:
             if hasattr(tile, 'image'):
                 tile.image = pygame.Surface(self.forward_to_rect(0).size)
-                self.redraw_entry(tile)
+                self.entry_redraw(tile)
         if self.nodes:
             self.nodes[0].dirty = 1  # reposition the scrollbar
 
@@ -145,7 +153,32 @@ class TreeTabGrid(GridList):
             index = self.position_to_index((event.pos[0] - self.rect.x,
                                             event.pos[1] - self.rect.y))
             if 0 <= index < len(self.tiles):
-                pass
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    self.set_and_redraw_entry(self.tiles[index], 'selected_entry')
+                    self.parent.parent.set_selected_node(self.selected_entry.weak_reference())
+                elif event.type == pygame.MOUSEMOTION:
+                    self.set_and_redraw_entry(self.tiles[index], 'hovered_entry')
+        else:
+            if event.type == pygame.MOUSEMOTION:
+                previous_entry = self.hovered_entry
+                if self.hovered_entry is not None:
+                    self.hovered_entry = None
+                    self.entry_redraw(previous_entry)
+
+    def set_and_redraw_entry(self, new_entry, attribute_name):
+        previous_entry = getattr(self, attribute_name, None)
+        if new_entry is previous_entry:  # skip if the entry does not changed
+            return
+        setattr(self, attribute_name, new_entry)  # reassigned here (read by entry_redraw)
+        if previous_entry is not None:
+            self.entry_redraw(previous_entry)  # previous entry un-highlighted
+        self.entry_redraw(self.hovered_entry)  # newly stored entry is highlighted
+
+    def clear(self, tree):
+        self.tree = tree
+        self.linear_copy.clear()
+        self.get_linear_copy(self.tree)
+
 
 class TreeTab(SpriteNode):
     _layer = 0
@@ -154,12 +187,13 @@ class TreeTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10), 150),
+        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10),
+                                               max(100, self.transform.height - 100)),
                                 group, tree, icon_sheet, color=self.style.get('color'),
-                                background=brighten_color(self.style.get('background'), 5))
+                                background=self.style.get('background_indent'))
 
-        self.scrollbar = Scrollbar(NodeProperties(self.grid, width=2), group,
-                                   color_scroll=brighten_color(self.style.get('background'), 15))
+        Scrollbar(NodeProperties(self.grid, width=2), group,
+                  style=self.style)
 
         self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
                              group, "Nodes v", background=brighten_color(self.style.get('background'), -5),
@@ -184,3 +218,7 @@ class TreeTab(SpriteNode):
     def resize_rect(self):
         super().resize_rect()
         self.grid.transform.width = max(0, self.transform.width - 10)
+        self.grid.transform.height = max(100, self.transform.height - 100)
+
+    def clear(self, tree):
+        self.grid.clear(tree)

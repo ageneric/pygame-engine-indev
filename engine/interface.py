@@ -44,13 +44,13 @@ class State:
 class Style:
     """Behaves like a dictionary, usually used to hold graphical attributes.
     Interface classes may use a Style and/or keyword arguments, for example:
-      Button(..., color=(90, 90, 0), color_two=(10, 10, 0))
+      Button(..., color=(96, 96, 0), color_two=(80, 0, 0))
     May be replaced by:
-      my_style = Style(color=(90, 90, 0))
-      Button(..., style=my_style, color_two=(10, 10, 0))
+      my_style = Style(color=(96, 96, 0))
+      Button(..., style=my_style, color_two=(80, 0, 0))
 
     Every Style includes default values for 'color', 'background' and 'font'.
-    Keys of the form 'base_name_modifier' default to 'base_name'.
+    Keys of the form 'base_first_second' default to 'base_first' then 'base'.
     The modifiers 'hovered', 'selected', 'blocked' are special cases of this.
     """
     state_modifier = '', '_hovered', '_selected', '_blocked'
@@ -82,7 +82,7 @@ class Style:
             return self.dict[name]
         elif '_' in name:
             base_name, modifier = name.rsplit('_', 1)
-            value = self.get(base_name, Style.NO_VALUE)
+            value = self.get(base_name, default)
             if isinstance(value, pygame.Color) or type(value) == tuple:
                 value = self.modified_color(value, modifier, base_name)
             return value
@@ -123,10 +123,11 @@ class Button(SpriteNode):
         self.message = message
 
         self.state = State.idle
-        self.pre_render_text()
+        self.cache_text_render()
 
-    def pre_render_text(self):
-        return text.render(self.message, color=self.style.get('color'), save_sprite=True)
+    def cache_text_render(self):
+        return text.render(self.message, self.style.get('font'),
+                           self.style.get('color'), save_sprite=True)
 
     def event(self, event):
         """Pass each pygame mouse event to the button,
@@ -161,17 +162,23 @@ class Button(SpriteNode):
         super().draw()
         if self._visible and self.dirty > 0:
             if self.style.get('image'):
-                self.image.blit(self.style.get('image'), (0, 0))
+                self.image.blit(self.switch_style('image'), (0, 0))
             else:
-                self.image.fill(self.style.get_by_state('background', self.state))
-
+                self.image.fill(self.switch_style('background'))
             if self.message:
                 position = (self.transform.width / 2, self.transform.height / 2)
-                color = self.style.get_by_state('color', self.state)
+                color = self.switch_style('color')
                 text.draw(self.image, self.message, position,
-                          font=self.style.get('font'), color=color, justify=True)
+                          self.switch_style('font'), color=color, justify=True)
+
+    def switch_style(self, base_name):
+        return self.style.get_by_state(base_name, self.state)
 
 class Toggle(Button):
+    """Inherits from Button. The boolean Toggle.checked holds if the toggle is
+    checked, and on clicked, it is flipped and passed to the callback.
+    Takes also 'checked' and 'unchecked' modifiers of the colour, background
+    and image styles, for example color_checked_hovered=(80, 0, 0)."""
     def __init__(self, node_props, group, message='', callback=None, checked=False, **kwargs):
         super().__init__(node_props, group, message, callback, **kwargs)
         self.checked = checked
@@ -180,6 +187,9 @@ class Toggle(Button):
         self.checked = not self.checked
         self.callback(self.checked)
 
+    def switch_style(self, base_name):
+        checked_string = "_checked" if self.checked else "_unchecked"
+        return self.style.get_by_state(base_name + checked_string, self.state)
 
 class TextEntry(SpriteNode):
     """A single line rectangular box that can be typed in.
@@ -255,7 +265,7 @@ class TextEntry(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            background = self.style.get_by_state('background', self.state)
+            background = self.switch_style('background')
             self.image.fill(background)
             if self.state == State.selected:
                 draw_message = self.text + '|'
@@ -263,7 +273,10 @@ class TextEntry(SpriteNode):
                 draw_message = self.text
             text.draw(self.image, draw_message, (4, self.transform.height / 2),
                       font=self.style.get('font'),
-                      color=self.style.get('color'), justify=(False, True))
+                      color=self.switch_style('color'), justify=(False, True))
+
+    def switch_style(self, base_name):
+        return self.style.get_by_state(base_name, self.state)
 
 
 class GridList(SpriteNode):
@@ -421,6 +434,12 @@ class SpriteList(GridList):
                 if node.transform.size != correct_rect.size:
                     node.transform.size = correct_rect.size
             self.grid_group.draw(self.image)
+
+    # These method differs from the base method as it does not cascade to children
+    def cascade_move_rect(self, dx, dy):
+        self.rect.move_ip(dx, dy)
+        if self.dirty < 2:
+            self.dirty = 1
 
 # TODO: horizontal scrolling
 class Scrollbar(SpriteNode):

@@ -2,7 +2,7 @@ import pygame
 import ast
 
 from engine import text as text
-from engine.base_node import SpriteNode, NodeProperties
+from engine.base_node import Node, SpriteNode, NodeProperties
 from engine.interface import Style, Scrollbar, TextEntry, State
 
 from tree_tab import string_color
@@ -17,7 +17,7 @@ class NumberEntry(TextEntry):
         self.bound = bound
 
     def parse(self):
-        if len(self.text) > 10240:
+        if len(self.text) > 5120:
             return None
         try:
             literal = ast.literal_eval(self.text)
@@ -53,6 +53,7 @@ class Inspector(SpriteNode):
 
         self.widget_style = Style.from_kwargs(dict(style=self.style, color_error=(251, 110, 110),
                                                    background=self.style.get('background_indent')))
+        self.widgets = Node(NodeProperties(self, 0, 0))
 
     def update(self):
         super().update()
@@ -72,8 +73,8 @@ class Inspector(SpriteNode):
         widget_x_half = self.transform.width // 2 + 3 + 20
         widget_width_half = self.transform.width // 2 - 90
 
-        for i in range(len(self.nodes) - 1):
-            self.nodes[1].remove()
+        for i in range(len(self.widgets.nodes)):
+            self.widgets.nodes[0].remove()
 
         if transform is not None:
             self.edit_transform_entry(55, current_y, widget_width_half, 15, 'x', (float, int))
@@ -90,12 +91,12 @@ class Inspector(SpriteNode):
             current_y += 24
 
         if isinstance(node, SpriteNode):
-            NumberEntry(NodeProperties(self, 55, current_y, widget_width_half, 15), self.draw_group,
+            NumberEntry(NodeProperties(self.widgets, 55, current_y, widget_width_half, 15), self.draw_group,
                         str(getattr(self.selected_node, 'layer')), 'layer', allow_types=(int,),
                         style=self.widget_style, enter_callback=self.set_layer)
 
     def edit_transform_entry(self, x, y, width, height, bound_name, allow_types):
-        NumberEntry(NodeProperties(self, x, y, width, height), self.draw_group,
+        NumberEntry(NodeProperties(self.widgets, x, y, width, height), self.draw_group,
                     str(getattr(self.selected_node.transform, bound_name)), bound_name, allow_types=allow_types,
                     style=self.widget_style, enter_callback=self.set_selected_transform_attribute)
 
@@ -115,9 +116,11 @@ class Inspector(SpriteNode):
         if node is None:
             return
 
-        for _node in self.nodes[1:]:
+        self.widgets.transform.y = -self.scroll_pixels
+
+        for _node in self.widgets.nodes:
             if hasattr(_node, 'bound'):
-                text.draw(self.image, _node.bound, (_node.transform.x - 55, _node.transform.y))
+                text.draw(self.image, _node.bound, (_node.transform.x - 55, _node.transform.y - self.scroll_pixels))
 
         self.dirty = 1
 

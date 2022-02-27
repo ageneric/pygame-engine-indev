@@ -108,16 +108,17 @@ class Editor(Scene):
             if event.type == pygame.VIDEORESIZE:
                 self.resize()
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RIGHT:
-                    self.selected_node.transform.x += 1
-                if event.key == pygame.K_LEFT:
-                    self.selected_node.transform.x -= 1
-                if event.key == pygame.K_DOWN:
-                    self.selected_node.transform.y += 1
-                if event.key == pygame.K_UP:
-                    self.selected_node.transform.y -= 1
-                if event.key == pygame.K_DELETE:
-                    self.selected_node.remove()
+                if self.selected_node is not None:
+                    if event.key == pygame.K_RIGHT:
+                        self.selected_node.transform.x += 1
+                    if event.key == pygame.K_LEFT:
+                        self.selected_node.transform.x -= 1
+                    if event.key == pygame.K_DOWN:
+                        self.selected_node.transform.y += 1
+                    if event.key == pygame.K_UP:
+                        self.selected_node.transform.y -= 1
+                    if event.key == pygame.K_DELETE:
+                        self.selected_node.remove()
 
         if not self.play:
             return

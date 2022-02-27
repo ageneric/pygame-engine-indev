@@ -172,7 +172,7 @@ class TreeTabGrid(GridList):
         setattr(self, attribute_name, new_entry)  # reassigned here (read by entry_redraw)
         if previous_entry is not None:
             self.entry_redraw(previous_entry)  # previous entry un-highlighted
-        self.entry_redraw(self.hovered_entry)  # newly stored entry is highlighted
+        self.entry_redraw(new_entry)  # newly stored entry is highlighted
 
     def clear(self, tree):
         self.tree = tree

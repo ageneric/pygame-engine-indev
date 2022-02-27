@@ -5,7 +5,6 @@ from engine.base_scene import Scene
 from engine.base_node import Node, SpriteNode, NodeProperties
 from constants import *
 
-from tree_tab import TreeTabGrid
 
 class ExampleBlank(Scene):
     def __init__(self, screen, clock):
@@ -13,6 +12,7 @@ class ExampleBlank(Scene):
 
     def update(self):
         super().update()
+
 
 def grid_example_generator():
     yield SpriteNode, dict(fill_color=C_RED)
@@ -56,6 +56,7 @@ class ExampleHandling(Scene):
         self.demo_button.enabled = not self.demo_button.enabled
         self.demo_button2.enabled = not self.demo_button2.enabled
 
+
 class ExampleTree(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
@@ -88,38 +89,3 @@ class ExampleTree(Scene):
                     self.nodes[0].transform.x = (self.nodes[0].transform.x + 1) % 600
                 if event.key == pygame.K_w:
                     self.nodes[0].nodes[0].transform.x = (self.nodes[0].nodes[0].transform.x + 1) % 600
-
-
-class ExampleDetail(Scene):
-    def __init__(self, screen, clock):
-        super().__init__(screen, clock)
-        self.group = pygame.sprite.Group()
-
-        self.groups.append(self.group)
-        self.recent_frames_ms = []
-
-    def set_ref(self, ref):
-        self.tree_tab = TreeTabGrid(NodeProperties(self, 30, 20, self.screen_size_x - 30, 125, enabled=False),
-                                    self.group, ref, spacing=13, background=C_LIGHT_ISH, color=C_DARK)
-
-    def update(self):
-        super().update()
-
-    def draw(self):
-        super().draw()
-
-        self.screen.fill(C_LIGHT)
-        if self.tree_tab.visible:
-            self.group.draw(self.screen)
-            self.tree_tab.dirty = False
-
-        rawtime = self.clock.get_rawtime()
-        self.recent_frames_ms.append(rawtime)
-        if len(self.recent_frames_ms) > 30:
-            self.recent_frames_ms.pop(0)
-            message = f'{sum(self.recent_frames_ms) * FPS // 30}ms / s ({rawtime}ms / frame)'
-        else:
-            message = f'{rawtime}ms processing / frame'
-            
-        text.draw(self.screen, message, (30, 5),
-                  color=C_DARK_ISH, justify=(False, False))

@@ -20,10 +20,18 @@ class Transform:
         self.height = height
         self.anchor_x = anchor_x
         self.anchor_y = anchor_y
-        self.node = node
+        self.node = node  # optional; observes changes to the transform
 
     def __repr__(self) -> str:
-        return f'(XY {self.x}, {self.y}, WH {self.width}, {self.height}, aXY {self.anchor_x}, {self.anchor_y})'
+        return f'Transform({self.x}, {self.y}, {self.width}, {self.height}, {self.anchor_x}, {self.anchor_y})'
+
+    def __str__(self) -> str:
+        if self.anchor_x == 0 and self.anchor_y == 0:
+            return f'<Transform({round(self.x, 3)}, {round(self.y, 3)}), ' \
+                   f'{self.width}, {self.height}>'
+        else:
+            return f'<Transform({round(self.x, 3)}, {round(self.y, 3)}), ' \
+                   f'{self.width}, {self.height}, {self.anchor_x}, {self.anchor_y}>'
 
     @classmethod
     def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0):

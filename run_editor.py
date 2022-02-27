@@ -4,7 +4,7 @@ Run this file to start the editor."""
 # pygame 2.0.1 (SDL 2.0.12, python 3.8.2)
 import pygame as pg
 from importlib import import_module
-import editor
+import editor_scenes
 from constants import *
 
 LAST_PROJECT_MODULE = "scenes"
@@ -27,7 +27,7 @@ def main():
 
     print('3/3 Starting: main loop')
     scenes = import_module(LAST_PROJECT_MODULE)
-    scene = editor.Editor(screen, clock, getattr(scenes, SCENE_NAME))
+    scene = editor_scenes.Editor(screen, clock, getattr(scenes, SCENE_NAME))
 
     running = True
 
@@ -52,6 +52,15 @@ def main():
 
 
 if __name__ == "__main__":
+    """import cProfile
+    profile = cProfile.Profile()
+    profile.enable()"""
+
     main()
+
+    """profile.disable()
+    import pstats
+    pstats.Stats(profile).strip_dirs().sort_stats("cumulative").print_stats(24)
+    pstats.Stats(profile).strip_dirs().sort_stats("tottime").print_stats(24)"""
 
 pg.quit()

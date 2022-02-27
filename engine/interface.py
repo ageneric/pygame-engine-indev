@@ -39,7 +39,7 @@ def saturate_color(color, saturation: float):
     return tuple(saturate_color_component(r_g_b, mean, saturation) for r_g_b in color)
 
 class State:
-    idle, hovered, selected, blocked = range(4)
+    idle, hovered, selected, locked = range(4)
 
 class Style:
     """Behaves like a dictionary, usually used to hold graphical attributes.
@@ -51,9 +51,9 @@ class Style:
 
     Every Style includes default values for 'color', 'background' and 'font'.
     Keys of the form 'base_first_second' default to 'base_first' then 'base'.
-    The modifiers 'hovered', 'selected', 'blocked' are special cases of this.
+    The modifiers 'hovered', 'selected', 'locked' are special cases of this.
     """
-    state_modifier = '', '_hovered', '_selected', '_blocked'
+    state_modifier = '', '_hovered', '_selected', '_locked'
     NO_VALUE = object()
 
     def __init__(self, **kwargs):
@@ -96,7 +96,7 @@ class Style:
             return brighten_color(color, -5)
         elif modifier == 'selected' and base_name != 'color':
             return brighten_color(color, 5)
-        elif modifier == 'blocked':
+        elif modifier == 'locked':
             return brighten_color(saturate_color(color, -10), 0.25)
         return color
 
@@ -134,13 +134,14 @@ class Button(SpriteNode):
         so it can update (i.e. if hovered or clicked).
         For speed, only call if `event.type in MOUSE_EVENTS`.
         """
-        if self.state == State.blocked or not self._visible:
+        if self.state == State.locked or not self._visible:
             return
 
         last_state = self.state
+        mouse_over = self.rect.collidepoint(event.pos)
         # Only react to a click on mouse-up (helps avoid an accidental click).
         if last_state == State.selected and event.type == MOUSEBUTTONUP:
-            if self.callback and self.rect.collidepoint(event.pos):
+            if self.callback and mouse_over:
                 self.on_click()
             self.state = State.idle
 
@@ -224,7 +225,7 @@ class TextEntry(SpriteNode):
             self.edit_callback(self.text)
 
     def event(self, event):
-        if self.state == State.blocked or not self._visible:
+        if self.state == State.locked or not self._visible:
             return
 
         last_state = self.state
@@ -485,6 +486,7 @@ class Scrollbar(SpriteNode):
                 self.scroll_by(self.scroll_speed)
             elif self.rect.x - 2 <= event.pos[0]:  # wider click margin
                 if event.button == 1:
-                    self.scroll_by(self.scroll_speed)
-                elif event.button == 3:
-                    self.scroll_by(-self.scroll_speed)
+                    if event.pos[1] > self.rect.centery:
+                        self.scroll_by(self.scroll_speed)
+                    else:
+                        self.scroll_by(-self.scroll_speed)

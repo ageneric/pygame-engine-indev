@@ -138,13 +138,13 @@ class Editor(Scene):
         self.inspector_tab.dirty = 1
 
     def action_play(self, checked):
-       self.play = checked
+        self.play = checked
 
     def action_reload(self):
         if self.play:
-            self.toggle_play.checked = True
+            self.toggle_play.checked = False
             self.toggle_play.dirty = 1
-            self.action_play(True)  # stop playing
+            self.action_play(False)  # stop playing
 
         self.user_scene = self.user_scene_class(self.user_surface, self.clock)
         self.tree_tab.clear(self.user_scene)

@@ -139,8 +139,8 @@ class TreeTabGrid(GridList):
         text.draw(entry.image, node_name, (entry.depth*8 + 32, 0), color=name_color)
         self.dirty = 1
 
-    def resize_rect(self):
-        super().resize_rect()
+    def on_resize(self):
+        super().on_resize()
         for tile in self.tiles:
             if hasattr(tile, 'image'):
                 tile.image = pygame.Surface(self.forward_to_rect(0).size)
@@ -215,10 +215,10 @@ class TreeTab(SpriteNode):
         self.grid.enabled = checked
         self.toggle.message = "Nodes v" if checked else "Nodes x"
 
-    def resize_rect(self):
-        super().resize_rect()
-        self.grid.transform.width = max(0, self.transform.width - 10)
-        self.grid.transform.height = max(100, self.transform.height - 100)
+    def on_resize(self):
+        super().on_resize()
+        self.grid.transform.size = (max(0, self.transform.width - 10),
+                                    max(100, self.transform.height - 100))
 
     def clear(self, tree):
         self.grid.clear(tree)

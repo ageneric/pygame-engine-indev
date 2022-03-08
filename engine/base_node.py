@@ -35,7 +35,8 @@ class Transform:
 
     @classmethod
     def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0):
-        return cls(rect.x, rect.y, rect.width, rect.height, anchor_x, anchor_y)
+        return cls(rect.x + rect.width * anchor_x, rect.y + rect.height * anchor_y,
+                   rect.width, rect.height, anchor_x, anchor_y)
 
     def rect(self):
         return pygame.Rect(int(self.x - self.width * self.anchor_x),
@@ -54,7 +55,9 @@ class Transform:
 
     @position.setter
     def position(self, position_x_y: (float, float)):
-        self.x, self.y = position_x_y
+        # Set the first attribute directly so only one transform_update is used
+        object.__setattr__(self, 'x', position_x_y[0])
+        self.y = position_x_y[1]
 
     @property
     def size(self) -> (int, int):
@@ -62,7 +65,12 @@ class Transform:
 
     @size.setter
     def size(self, width_height: (int, int)):
-        self.width, self.height = width_height
+        # Set the first attribute directly so only one transform_update is used
+        object.__setattr__(self, 'width', width_height[0])
+        self.height = width_height[1]
+
+    def get_positive_size(self) -> (int, int):
+        return max(0, self.width), max(0, self.height)
 
     @property
     def anchor(self) -> (float, float):
@@ -124,17 +132,19 @@ class Node:
         self.cascade_set_visible(set_enable)
 
     def transform_update(self, name):
-        if name in ('x', 'y'):
-            if hasattr(self.parent, 'is_origin'):
-                dx, dy = self.transform.x - self.rect.x, self.transform.y - self.rect.y
-            else:
-                dx, dy = self.transform.x - self.rect.x + self.parent.rect.x, self.transform.y - self.rect.y + self.parent.rect.y
-            if dx != 0 or dy != 0:
-                self.cascade_move_rect(dx, dy)
-        else:
-            self.resize_rect()
+        if self.rect == self.world_rect():
+            return
 
-    def resize_rect(self):
+        if name == 'x' or name == 'y':
+            if hasattr(self.parent, 'is_origin'):
+                x, y = self.transform.x, self.transform.y
+            else:
+                x, y = self.transform.x + self.parent.rect.x, self.transform.y + self.parent.rect.y
+            self.cascade_set_rect(x, y)
+        else:
+            self.on_resize()
+
+    def on_resize(self):
         self.rect.width = self.transform.width
         self.rect.height = self.transform.height
 
@@ -143,11 +153,11 @@ class Node:
             for child in self.nodes:
                 child.cascade_set_visible(set_visible)
 
-    def cascade_move_rect(self, dx, dy):
-        self.rect.move_ip(dx, dy)
+    def cascade_set_rect(self, x, y):
+        self.rect.x, self.rect.y = int(x), int(y)
         if self.nodes:
             for child in self.nodes:
-                child.cascade_move_rect(dx, dy)
+                child.cascade_set_rect(x + child.transform.x, y + child.transform.y)
 
     def remove(self):
         if self in self.parent.nodes:
@@ -171,11 +181,12 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         self._visible = self.world_visible()
 
         if image is None:
-            self.image = pygame.Surface(self.transform.size)
+            self.image = pygame.Surface(self.transform.get_positive_size())
             if fill_color is not None:
                 self.image.fill(fill_color)
         else:
-            self.image = pygame.Surface(self.transform.size, 0, image)
+            self.image = pygame.Surface(self.transform.get_positive_size(),
+                                        image.get_flags(), image)
 
     def remove(self):
         pygame.sprite.Sprite.kill(self)
@@ -197,13 +208,14 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
             if self.dirty < 2:
                 self.dirty = 1
 
-    def cascade_move_rect(self, dx, dy):
-        Node.cascade_move_rect(self, dx, dy)
+    def cascade_set_rect(self, x, y):
+        Node.cascade_set_rect(self, x, y)
         if self.dirty < 2:
             self.dirty = 1
 
-    def resize_rect(self):
-        Node.resize_rect(self)
-        self.image = pygame.Surface(self.transform.size, self.image.get_flags(), self.image)
+    def on_resize(self):
+        Node.on_resize(self)
+        self.image = pygame.Surface(self.transform.get_positive_size(),
+                                    self.image.get_flags(), self.image)
         if self.dirty < 2:
             self.dirty = 1

@@ -9,7 +9,7 @@ def random_transform_values(random):
             random.uniform(-999, 999), random.uniform(-999, 999))
 
 def test_transform():
-    random = Random(1)
+    random = Random(1)  # seed ensures consistent random test cases
 
     test_transforms = [
         Transform(0, 0),
@@ -19,24 +19,31 @@ def test_transform():
     for i in range(128):
         test_transforms.append(Transform(*random_transform_values(random)))
 
-    print('Test: A transform has non-negative width and height.')
+    print("Test: A transform's 'positive size' has non-negative width and height.")
     for transform in test_transforms:
-        assert transform.width >= 0 and transform.height >= 0
-    print('Test: A transform has non-negative width and height if set negative.')
-    test_transforms[-1].size = (-1, -1)
-    assert test_transforms[-1].width >= 0 and test_transforms[-1].height >= 0
-    print('Test: A transform may be converted to and from a Pygame Rect.')
+        positive_size = transform.get_positive_size()
+        assert positive_size[0] >= 0 and positive_size[1] >= 0
+    print('Test: A transform may be converted to and from a Pygame Rect.'
+          + '\n  ... The position and size only stay precise to the nearest integer.')
     for transform in test_transforms:
-        assert transform == Transform.from_rect(transform.rect(), *transform.anchor)
+        rect_transform = Transform.from_rect(
+            transform.rect(), transform.anchor_x, transform.anchor_y)
+        comparisons = (
+            (rect_transform.x, transform.x), (rect_transform.width, transform.width),
+            (rect_transform.y, transform.y), (rect_transform.height, transform.height)
+        )
+        for converted_property, original_property in comparisons:
+            assert abs(converted_property - original_property) < 1
+        assert rect_transform.anchor == transform.anchor
     print('Test: A transform may be modified by assigning to a property.')
     for transform in test_transforms:
         random_change_in_x = random.uniform(-999, 999)
         t_x, t_y = transform.x, transform.y
-        transform.position = (t_x + random_change_in_x, t_y * 2)
-        assert transform.x == t_x + random_change_in_x and transform.y == t_y * 2
+        transform.position = (t_x + random_change_in_x, t_y*2)
+        assert transform.x == t_x + random_change_in_x and transform.y == t_y*2
 
 def test_node():
-    random = Random(1)
+    random = Random(1)  # seed ensures consistent random test cases
 
     class TestScene:
         nodes, is_origin = [], 'Scene'

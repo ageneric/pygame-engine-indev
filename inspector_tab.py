@@ -134,7 +134,8 @@ class Inspector(SpriteNode):
     @staticmethod
     def readable_properties(node):
         for prop in dir(node):
-            if not prop.startswith('_') and type(getattr(node, prop)) in (int, str, tuple, bool):
+            if (not prop.startswith('_') and type(getattr(node, prop))
+                    in (int, str, tuple, bool, pygame.Rect)):
                 yield prop
 
     @property
@@ -174,8 +175,8 @@ class InspectorTab(SpriteNode):
                 text.draw(self.image, str(self.inspector.selected_node), (5 + surface.get_rect().width, 24))
                 self.image.blit(surface, (5, 24))
 
-    def resize_rect(self):
-        super().resize_rect()
+    def on_resize(self):
+        super().on_resize()
         self.inspector.transform.width = max(0, self.transform.width - 10)
         self.inspector.transform.height = max(50, self.transform.height - 40)
         self.inspector.selected_node = None

@@ -437,8 +437,8 @@ class SpriteList(GridList):
             self.grid_group.draw(self.image)
 
     # These method differs from the base method as it does not cascade to children
-    def cascade_move_rect(self, dx, dy):
-        self.rect.move_ip(dx, dy)
+    def cascade_set_rect(self, x, y):
+        self.rect.x, self.rect.y = int(x), int(y)
         if self.dirty < 2:
             self.dirty = 1
 

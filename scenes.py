@@ -5,87 +5,87 @@ from engine.base_scene import Scene
 from engine.base_node import Node, SpriteNode, NodeProperties
 from constants import *
 
-from tree_tab import TreeTab
 
 class ExampleBlank(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
 
-        self.n = Node(NodeProperties(self, 30, 30))
-        Node(NodeProperties(self, 75, 75))
-
     def update(self):
         super().update()
-        self.n.transform.x = self.n.transform.x + 1 % self.display_size_x
+
+
+def grid_example_generator():
+    yield SpriteNode, dict(fill_color=C_RED)
+    yield SpriteNode, dict(fill_color=C_GREEN)
+    yield SpriteNode, dict(fill_color=C_BLUE)
 
 class ExampleHandling(Scene):
     """Demo interface components and event handling."""
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        self.background = pygame.Surface(self.display_size)
-        self.background.fill((64, 0, 0))
-        self.group = pygame.sprite.LayeredDirty()
+        self.create_draw_group((8, 6, 6))
 
-        def callback():
-            print('button click -> demo')
+        def demo_callback(*args):
+            print(f'demo callback -> {args}')
 
-        self.button = interface.Button(NodeProperties(self, 100, 100, 150, 50),
-                                       'Demo clickable', callback, self.group, background=C_LIGHT)
+        self.demo_button = interface.Button(NodeProperties(self, 100, 100, 150, 50), self.draw_group,
+                                            'Demo clickable', demo_callback, background=C_LIGHT)
+
+        self.demo_button2 = interface.Button(NodeProperties(self, 125, 125, 250, 50), self.draw_group,
+                                             'Demo clickable 2', demo_callback, background=C_DARK)
+
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        toggle_visible_button = interface.Button(NodeProperties(self, 100, 200, 32, 32),
-                                                 'Image clickable', self.toggle_button, self.group,
-                                                 image=image)
-        self.event_handlers.append(self.button)
-        self.event_handlers.append(toggle_visible_button)
-        self.groups.append(self.group)
+        toggle_visible_button = interface.Button(NodeProperties(self, 100, 50, 32, 32), self.draw_group,
+                                                 'Image clickable', self.toggle_button, image=image)
 
-        self.group2 = pygame.sprite.LayeredDirty()
+        self.test_entry = interface.TextEntry(NodeProperties(self, 25, 25, 350, 20), self.draw_group,
+                                              '12345', demo_callback, allow_characters='0123456789.',
+                                              background=C_DARK)
 
-        self.test_button = interface.Button(NodeProperties(self, 125, 125, 250, 50),
-                                            'Second group clickable', callback, self.group2,
-                                            background=C_DARK)
-        self.event_handlers.append(self.test_button)
+        self.test_grid = interface.SpriteList(NodeProperties(self, 100, 200, 200, 200),
+                                              self.draw_group, grid_example_generator(), background=C_LIGHT)
 
-        self.test_node = Node(NodeProperties(self.test_button, 200, 200))
+        self._first_frame = True  # temporary testing measure
 
-        self.groups.append(self.group2)
-        for group in self.groups:
-            group.clear(self.screen, self.background)
+    def update(self):
+        super().update()
+        if self._first_frame:
+            self._first_frame = False
 
     def toggle_button(self):
-        self.button.enabled = not self.button.enabled
-        self.test_button.enabled = not self.test_button.enabled
+        self.demo_button.enabled = not self.demo_button.enabled
+        self.demo_button2.enabled = not self.demo_button2.enabled
+
+
+class ExampleTree(Scene):
+    def __init__(self, screen, clock):
+        super().__init__(screen, clock)
+        self.create_draw_group((8, 6, 6))
+
+        # for i in range(200):
+        a = SpriteNode(NodeProperties(self, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT)
+        b = SpriteNode(NodeProperties(a, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+        c = SpriteNode(NodeProperties(self, 20, 80, 20, 20), self.draw_group, fill_color=C_LIGHT)
+        d = SpriteNode(NodeProperties(c, 20, 20, 20, 20), self.draw_group, fill_color=C_LIGHT_ISH)
+
+    # def update(self):
+    #     super().update()
+    #     for i in self.nodes:
+    #         i.transform.x += 1
+    #         i.nodes[0].transform.x += 1
 
     def handle_events(self, pygame_events):
         for event in pygame_events:
-            if event.type in interface.MOUSE_EVENTS:
-                for button in self.event_handlers:
-                    button.mouse_event(event)
-
-
-class ExampleDetail(Scene):
-    def __init__(self, screen, clock):
-        super().__init__(screen, clock)
-        self.group = pygame.sprite.Group()
-
-        self.tree_tab = TreeTab(NodeProperties(self, 30, 20, self.display_size_x - 30, 125, enabled=False),
-                                self.group, None)
-
-        self.groups.append(self.group)
-        self.recent_frames_ms = []
-
-    def set_ref(self, ref):
-        self.tree_tab.ref = ref
-
-    def draw(self):
-        self.screen.fill(C_LIGHT)
-        super().draw()
-
-        rawtime = self.clock.get_rawtime()
-        self.recent_frames_ms.append(rawtime)
-        if len(self.recent_frames_ms) > FPS:
-            self.recent_frames_ms.pop(0)
-
-        message = f'{rawtime}ms processing time / frame ({sum(self.recent_frames_ms)}ms / s)'
-        text.draw(self.screen, message, (30, 5),
-                  color=C_DARK_ISH, justify=(False, False))
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    self.nodes[0].enabled = not self.nodes[0].enabled
+                if event.key == pygame.K_2:
+                    self.nodes[0].nodes[0].enabled = not self.nodes[0].nodes[0].enabled
+                if event.key == pygame.K_3:
+                    self.nodes[1].enabled = not self.nodes[1].enabled
+                if event.key == pygame.K_4:
+                    self.nodes[1].nodes[0].enabled = not self.nodes[1].nodes[0].enabled
+                if event.key == pygame.K_q:
+                    self.nodes[0].transform.x = (self.nodes[0].transform.x + 1) % 600
+                if event.key == pygame.K_w:
+                    self.nodes[0].nodes[0].transform.x = (self.nodes[0].nodes[0].transform.x + 1) % 600

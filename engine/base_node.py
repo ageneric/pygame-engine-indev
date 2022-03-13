@@ -11,15 +11,15 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
-    __slots__ = 'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'node'
+    __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'node'
 
     def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, node=None):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self.anchor_x = anchor_x
-        self.anchor_y = anchor_y
+        self._anchor_x = anchor_x
+        self._anchor_y = anchor_y
         self.node = node  # optional; observes changes to the transform
 
     def __repr__(self) -> str:
@@ -39,8 +39,11 @@ class Transform:
                    rect.width, rect.height, anchor_x, anchor_y)
 
     def rect(self):
-        return pygame.Rect(int(self.x - self.width * self.anchor_x),
-                           int(self.y - self.height * self.anchor_y), self.width, self.height)
+        x, y = self.rect_position(self.x, self.y)
+        return pygame.Rect(x, y, self.width, self.height)
+
+    def rect_position(self, x: float, y: float) -> (int, int):
+        return int(x - self.width * self._anchor_x), int(y - self.height * self._anchor_y)
 
     def __setattr__(self, name, val):  # may alternatively be achieved using properties
         object.__setattr__(self, name, val)
@@ -74,41 +77,75 @@ class Transform:
 
     @property
     def anchor(self) -> (float, float):
-        return self.anchor_x, self.anchor_y
+        return self._anchor_x, self._anchor_y
 
     @anchor.setter
     def anchor(self, anchor_x_y: (float, float)):
-        self.anchor_x, self.anchor_y = anchor_x_y
+        self._anchor_x, self._anchor_y = anchor_x_y
+
+    @property
+    def anchor_x(self) -> float:
+        return self._anchor_x
+
+    @property
+    def anchor_y(self) -> float:
+        return self._anchor_y
+
+    @anchor_x.setter
+    def anchor_x(self, anchor_x: float):
+        # Shift x value so that the rectangle stays in place
+        new_x = self.x + (anchor_x - self._anchor_x) * self.width
+        # Set the x attribute directly, no transform_update is needed
+        object.__setattr__(self, 'x', new_x)
+        self._anchor_x = anchor_x
+
+    @anchor_y.setter
+    def anchor_y(self, anchor_y: float):
+        # Shift y value so that the rectangle stays in place
+        new_y = self.y + (anchor_y - self._anchor_y) * self.width
+        # Set the y attribute directly, no transform_update is needed
+        object.__setattr__(self, 'y', new_y)
+        self._anchor_y = anchor_y
 
 class Node:
     def __init__(self, node_props: NodeProperties):
         self.parent = node_props[0]
-        if not hasattr(self.parent, 'nodes') and not hasattr(self.parent, 'rect'):
-            raise AttributeError(f'Missing attributes on parent, NodeProperties[0] (got {node_props[0]})')
+        # Check that the supplied node has the necessary attributes to be the parent
+        if not hasattr(self.parent, 'nodes'):
+            raise ValueError('Missing nodes attribute on parent, NodeProperties[0]'
+                          + f'(got {self.parent})\nGive a node, scene, or related type')
+        elif not (hasattr(self.parent, 'rect') or hasattr(self.parent, 'is_origin')):
+            raise ValueError('Missing rect or is_origin on parent, NodeProperties[0]'
+                          + f'(got {self.parent})\nGive a node, scene, or related type')
         self.parent.nodes.append(self)
-        self.transform = Transform(*node_props[1:6], node=self)
+        self.transform = Transform(*node_props[1:7], node=self)
         self._enabled = node_props[7]
+        self.nodes = []
 
         if hasattr(self, 'event_handler'):
             self.scene().add_event_handler(self)
+        # Get screen co-ordinates, shift position to be relative to the parent node
         self.rect = self.transform.rect()
         if not hasattr(self.parent, 'is_origin'):
             self.rect.move_ip(self.parent.rect.x, self.parent.rect.y)
         self.nodes = []
 
     def update(self):
-        if self.nodes:  # checking this is not a leaf node takes ~0.9x the time
+        # Recursively update child nodes, if not a leaf node (check uses ~0.9x time)
+        if self.nodes:
             for child in self.nodes:
                 if child.enabled:
                     child.update()
 
     def draw(self):
-        if self.nodes:  # checking this is not a leaf node takes ~0.9x the time
+        # Recursively draw child nodes, if not a leaf node (check uses ~0.9x time)
+        if self.nodes:
             for child in self.nodes:
                 if child.enabled:
                     child.draw()
 
     def world_rect(self) -> pygame.Rect:
+        """Calculate the on-screen rectangle of a Node. Cached as Node.rect."""
         rect = self.transform.rect()
         parent = self.parent
         while not hasattr(parent, 'is_origin'):
@@ -129,35 +166,41 @@ class Node:
     @enabled.setter
     def enabled(self, set_enable: bool):
         self._enabled = set_enable
-        self.cascade_set_visible(set_enable)
+        self._set_visible(set_enable)
 
     def transform_update(self, name):
-        if self.rect == self.world_rect():
+        """Update the rect attribute (on-screen position/size) for this
+        node and all child nodes when its transform is modified."""
+        if self.rect == self.world_rect():  # no changes to apply
             return
 
-        if name == 'x' or name == 'y':
-            if hasattr(self.parent, 'is_origin'):
-                x, y = self.transform.x, self.transform.y
-            else:
-                x, y = self.transform.x + self.parent.rect.x, self.transform.y + self.parent.rect.y
-            self.cascade_set_rect(x, y)
-        else:
+        if name in ('width', 'height'):
             self.on_resize()
+
+        # Move the top-left of the rectangle if position changes or
+        # the rectangle is resized about a point that is not the top-left
+        if name in ('x', 'y') or not self.transform.anchor == (0, 0):
+            x, y = self.transform.x, self.transform.y
+            if not hasattr(self.parent, 'is_origin'):
+                x += self.parent.rect.x
+                y += self.parent.rect.y
+            self._set_rect_position(x, y)
 
     def on_resize(self):
         self.rect.width = self.transform.width
         self.rect.height = self.transform.height
 
-    def cascade_set_visible(self, set_visible: bool):
+    def _set_visible(self, set_visible: bool):
         if self.nodes:
             for child in self.nodes:
-                child.cascade_set_visible(set_visible)
+                child._set_visible(set_visible)
 
-    def cascade_set_rect(self, x, y):
-        self.rect.x, self.rect.y = int(x), int(y)
+    def _set_rect_position(self, x, y):
+        x, y = self.transform.rect_position(x, y)
+        self.rect.x, self.rect.y = x, y
         if self.nodes:
             for child in self.nodes:
-                child.cascade_set_rect(x + child.transform.x, y + child.transform.y)
+                child._set_rect_position(x + child.transform.x, y + child.transform.y)
 
     def remove(self):
         if self in self.parent.nodes:
@@ -181,7 +224,8 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         self._visible = self.world_visible()
 
         if image is None:
-            self.image = pygame.Surface(self.transform.get_positive_size())
+            flags = pygame.SRCALPHA * (fill_color is None or len(fill_color) > 3)
+            self.image = pygame.Surface(self.transform.get_positive_size(), flags)
             if fill_color is not None:
                 self.image.fill(fill_color)
         else:
@@ -200,16 +244,16 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
             parent = parent.parent
         return visible
 
-    def cascade_set_visible(self, set_visible):
+    def _set_visible(self, set_visible):
         set_visible = set_visible and self.enabled
         if set_visible != self._visible:
             self._visible = set_visible
-            Node.cascade_set_visible(self, set_visible)
+            Node._set_visible(self, set_visible)
             if self.dirty < 2:
                 self.dirty = 1
 
-    def cascade_set_rect(self, x, y):
-        Node.cascade_set_rect(self, x, y)
+    def _set_rect_position(self, x, y):
+        Node._set_rect_position(self, x, y)
         if self.dirty < 2:
             self.dirty = 1
 

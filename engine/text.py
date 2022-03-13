@@ -10,13 +10,13 @@ BOX_PADDING = 5
 
 _sprite_cache = {}
 
-def draw(surface, message: str, position, font=FONT_DEFAULT, color=COLOR_DEFAULT,
-         text_sprite=None, static=False, justify: Union[bool, list, tuple] = False):
+def draw(surface, message: str, position: (int, int), color=COLOR_DEFAULT, font=FONT_DEFAULT,
+         text_sprite=None, static=False, justify: Union[bool, tuple, list] = False) -> pygame.Rect:
     """Draws text to the surface at the (x, y) position specified.
-    Justify - set to True/False to centre in both axes, or
-              pick each of the (x, y) axes to justify with, i.e.
-              (True, False) centres horizontally & not vertically.
-    Static - cache this text's sprite - for faster drawing.
+    Justify - set to True/False to centre in both/neither axes,
+        or pick separately for the (x, y) axes, i.e. set to
+        (True, False) to centre horizontally and not vertically.
+    Static - set to True to cache the text sprite (for faster drawing).
     """
     if text_sprite is None:  # render a new surface with text if None supplied
         text_sprite = render(message, font, color, static)
@@ -32,8 +32,8 @@ def draw(surface, message: str, position, font=FONT_DEFAULT, color=COLOR_DEFAULT
     return surface.blit(text_sprite, (x, y))
 
 def render(message: str, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=True):
-    """Render text, using the sprite cache if possible.
-    Adds to sprite cache when called directly / rendering static text.
+    """Render text, using the sprite cache if possible. Return the surface.
+    Adds to sprite cache when called directly or rendering static text.
     """
     text_sprite = _sprite_cache.get((message, font, *color))
 
@@ -44,11 +44,11 @@ def render(message: str, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=Tru
 
     return text_sprite
 
-def box(surface, message: str, position, width=None, height=None, middle=False,
-        box_color=BACKGROUND_DEFAULT, font=FONT_DEFAULT, color=COLOR_DEFAULT):
-    """Blits a text box to the surface at position, a pair
-    of (x, y) coordinates. Width and height, if omitted, fit
-    the text's size (with padding). Middle centres text.
+def box(surface, message: str, position: (int, int), width=None, height=None, middle=False,
+        box_color=BACKGROUND_DEFAULT, color=COLOR_DEFAULT, font=FONT_DEFAULT) -> pygame.Rect:
+    """Blits a text box to the surface at the (x, y) position specified.
+    The width and height, if omitted, fit the text's size. The text sprite
+    is also cached if either omitted. Set middle = True to centre text.
     """
     if width is None or height is None:
         text_sprite = render(message, font, color, save_sprite=True)
@@ -62,9 +62,9 @@ def box(surface, message: str, position, width=None, height=None, middle=False,
 
     if message:
         if middle:
-            draw(surface, message, box_rect.center, font, color, justify=True)
+            draw(surface, message, box_rect.center, color, font, justify=True)
         else:
-            draw(surface, message, (position[0] + BOX_PADDING, box_rect.centery),
-                 font, color, justify=(False, True))
+            draw(surface, message, (position[0] + BOX_PADDING, box_rect.centery), color,
+                 font, justify=(False, True))
 
     return box_rect

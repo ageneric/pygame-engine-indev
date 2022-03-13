@@ -1,19 +1,12 @@
 import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
-from engine.base_node import SpriteNode, NodeProperties
+from engine.base_node import SpriteNode, NodeProperties, Anchor
 from engine.interface import GridList, Scrollbar, Toggle, Style, brighten_color, MOUSE_EVENTS
 
+from other_tab import TabHeading, string_color
 import weakref
 
-def string_color(name: str):
-    """Generates an arbitrary bright colour from the first six characters."""
-    key = map(ord, name.ljust(6, ' '))
-    color = []
-    for i in range(3):
-        c = (16 * next(key) + next(key)) % 256  # use next two values as color
-        color.append(c if c > 137 else 247)  # make dark colour channels bright
-    return color
 
 class LinearEntry:
     __slots__ = 'weak_reference', 'reference_visible', 'reference_enabled', 'image', 'depth'
@@ -60,7 +53,7 @@ class TreeTabGrid(GridList):
         node_count = self.traverse_tree(self.tree)
         # Remove deleted nodes at the end of the tree
         if node_count < len(self.linear_copy):
-            print('del remainder', node_count, len(self.linear_copy))
+            # print('del remainder', node_count, len(self.linear_copy))
             del self.linear_copy[node_count:]
             self.dirty = 1
 
@@ -103,13 +96,12 @@ class TreeTabGrid(GridList):
 
         # Node not found in list, so it must be new, so insert it into list
         if index_list >= len_list:
-            print('create', start_index, depth)
-            assert not found_node
+            # print('create', start_index, depth)  # assert not found_node
             self.linear_copy.insert(start_index, self.new_entry(node, depth))
 
         # Did we skip over any nodes in list? Delete those as they are no longer in tree
         elif index_list - start_index > 0:
-            print('del from tree', start_index, index_list)
+            # print('del from tree', start_index, index_list)
             del self.linear_copy[start_index:index_list]
             self.dirty = 1
 
@@ -129,14 +121,13 @@ class TreeTabGrid(GridList):
         entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing - 16))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        text.draw(entry.image, state, (entry.depth*8 + 12, 0),
-                  color=self.style.get('color'))
+        text.draw(entry.image, state, (entry.depth * 8 + 12, 0), color=self.style.get('color'))
         node_name = type(entry.weak_reference()).__name__
         if entry.reference_visible == 0:
             name_color = brighten_color(self.style.get('color'), -18)
         else:
             name_color = string_color(node_name)
-        text.draw(entry.image, node_name, (entry.depth*8 + 32, 0), color=name_color)
+        text.draw(entry.image, node_name, (entry.depth * 8 + 32, 0), color=name_color)
         self.dirty = 1
 
     def on_resize(self):
@@ -187,7 +178,10 @@ class TreeTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        self.grid = TreeTabGrid(NodeProperties(self, 5, 45, max(0, self.transform.width - 10),
+        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+                   group, 'Node Tree', style=self.style)
+
+        self.grid = TreeTabGrid(NodeProperties(self, 5, 25, max(0, self.transform.width - 10),
                                                max(100, self.transform.height - 100)),
                                 group, tree, icon_sheet, color=self.style.get('color'),
                                 background=self.style.get('background_indent'))
@@ -203,13 +197,7 @@ class TreeTab(SpriteNode):
         super().draw()
 
         if self._visible and self.dirty > 0:
-            self.image.fill(self.style.get('background_editor'))
-
-            background, tabsize = self.style.get('background'), self.style.get('tabsize')
-            w, h = self.transform.width, self.transform.height
-            text.box(self.image, 'Node Tree', (0, 0), height=tabsize, box_color=background,
-                     font=self.style.get('font'), color=self.style.get('color'))
-            pygame.draw.rect(self.image, background, (0, tabsize, w, h - tabsize))
+            self.image.fill(self.style.get('background'))
 
     def toggle_grid(self, checked):
         self.grid.enabled = checked

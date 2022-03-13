@@ -2,10 +2,10 @@ import pygame
 import ast
 
 from engine import text as text
-from engine.base_node import Node, SpriteNode, NodeProperties
+from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
 from engine.interface import Style, Scrollbar, TextEntry, State
 
-from tree_tab import string_color
+from other_tab import TabHeading, string_color
 
 
 class NumberEntry(TextEntry):
@@ -43,22 +43,32 @@ class NumberEntry(TextEntry):
         error_string = '_error' if self.parse() is None else ''
         return self.style.get_by_state(base_name + error_string, self.state)
 
-class Inspector(SpriteNode):
+
+class InspectorTab(SpriteNode):
+    """Expected environment: parent has property 'selected_node'"""
+    _layer = 0
+
     def __init__(self, node_props: NodeProperties, group, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
+
+        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+                   group, 'Inspector', style=self.style)
+
+        Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+
         self.scroll_pixels = 0
-        self.draw_group = group
+        self.widget_group = group
         self.selected_node = None
 
         self.widget_style = Style.from_kwargs(dict(style=self.style, color_error=(251, 110, 110),
                                                    background=self.style.get('background_indent')))
-        self.widgets = Node(NodeProperties(self, 0, 0))
+        self.widgets = Node(NodeProperties(self, 5, 5))
 
     def update(self):
         super().update()
-        if self.selected_node is not self.parent.parent.selected_node:
-            self.selected_node = self.parent.parent.selected_node
+        if self.selected_node is not self.parent.selected_node:
+            self.selected_node = self.parent.selected_node
             if self.selected_node is not None:
                 self.generate_widgets()
 
@@ -91,12 +101,12 @@ class Inspector(SpriteNode):
             current_y += 24
 
         if isinstance(node, SpriteNode):
-            NumberEntry(NodeProperties(self.widgets, 55, current_y, widget_width_half, 15), self.draw_group,
+            NumberEntry(NodeProperties(self.widgets, 55, current_y, widget_width_half, 15), self.widget_group,
                         str(getattr(self.selected_node, 'layer')), 'layer', allow_types=(int,),
                         style=self.widget_style, enter_callback=self.set_layer)
 
     def edit_transform_entry(self, x, y, width, height, bound_name, allow_types):
-        NumberEntry(NodeProperties(self.widgets, x, y, width, height), self.draw_group,
+        NumberEntry(NodeProperties(self.widgets, x, y, width, height), self.widget_group,
                     str(getattr(self.selected_node.transform, bound_name)), bound_name, allow_types=allow_types,
                     style=self.widget_style, enter_callback=self.set_selected_transform_attribute)
 
@@ -110,26 +120,36 @@ class Inspector(SpriteNode):
     def draw(self):
         super().draw()
 
-        self.image.fill(self.style.get('background'))
-        node = self.selected_node
+        if self._visible and self.dirty > 0:
+            self.image.fill(self.style.get('background'))
 
-        if node is None:
-            return
+            for widget in self.widgets.nodes:
+                widget.enabled = widget.transform.y > self.scroll_pixels
 
-        self.widgets.transform.y = -self.scroll_pixels
+            if self.selected_node:
+                node_name = type(self.selected_node).__name__
+                name_color = string_color(node_name)
+                surface = text.render(node_name, color=name_color)
+                text.draw(self.image, str(self.selected_node), (5 + surface.get_rect().width, 240))
+                self.image.blit(surface, (5, 240))
 
-        for _node in self.widgets.nodes:
-            if hasattr(_node, 'bound'):
-                text.draw(self.image, _node.bound, (_node.transform.x - 55, _node.transform.y - self.scroll_pixels))
+            node = self.selected_node
 
-        self.dirty = 1
+            if node is None:
+                return
 
-        text_parent = 'Parent: ' + str(getattr(node, 'parent', None))
-        text.draw(self.image, text_parent, (0, 80 - self.scroll_pixels))
+            self.widgets.transform.y = -self.scroll_pixels
 
-        for i, prop in enumerate(self.readable_properties(node)):
-            text.draw(self.image, prop, (0, 100 + i*12 - self.scroll_pixels), color=self.style.get('color'))
-            text.draw(self.image, str(getattr(node, prop)), (108, 100 + i*12 - self.scroll_pixels))
+            for _node in self.widgets.nodes:
+                if hasattr(_node, 'bound'):
+                    text.draw(self.image, _node.bound, (_node.transform.x - 55, _node.transform.y - self.scroll_pixels))
+
+            text_parent = 'Parent: ' + str(getattr(node, 'parent', None))
+            text.draw(self.image, text_parent, (0, 80 - self.scroll_pixels))
+
+            for i, prop in enumerate(self.readable_properties(node)):
+                text.draw(self.image, prop, (0, 100 + i * 12 - self.scroll_pixels), color=self.style.get('color'))
+                text.draw(self.image, str(getattr(node, prop)), (108, 100 + i * 12 - self.scroll_pixels))
 
     @staticmethod
     def readable_properties(node):
@@ -141,42 +161,3 @@ class Inspector(SpriteNode):
     @property
     def scroll_limits(self):
         return 0, 100
-
-class InspectorTab(SpriteNode):
-    """Expected environment: parent has property 'selected_node'"""
-    def __init__(self, node_props: NodeProperties, group, **kwargs):
-        super().__init__(node_props, group)
-        self.style = Style.from_kwargs(kwargs)
-
-        self.inspector = Inspector(NodeProperties(self, 5, 40, max(0, self.transform.width - 10),
-                                                  max(50, self.transform.height - 40)),
-                                   group, style=self.style)
-        Scrollbar(NodeProperties(self.inspector, width=2), group, style=self.style)
-
-    def update(self):
-        super().update()
-
-    def draw(self):
-        super().draw()
-
-        if self._visible and self.dirty > 0:
-            self.image.fill(self.style.get('background_editor'))
-
-            background, tabsize = self.style.get('background'), self.style.get('tabsize')
-            w, h = self.transform.width, self.transform.height
-            text.box(self.image, 'Inspector', (0, 0), height=tabsize, box_color=background,
-                     font=self.style.get('font'), color=self.style.get('color'))
-            pygame.draw.rect(self.image, background, (0, tabsize, w, h - tabsize))
-
-            if self.inspector.selected_node:
-                node_name = type(self.inspector.selected_node).__name__
-                name_color = string_color(node_name)
-                surface = text.render(node_name, color=name_color)
-                text.draw(self.image, str(self.inspector.selected_node), (5 + surface.get_rect().width, 24))
-                self.image.blit(surface, (5, 24))
-
-    def on_resize(self):
-        super().on_resize()
-        self.inspector.transform.width = max(0, self.transform.width - 10)
-        self.inspector.transform.height = max(50, self.transform.height - 40)
-        self.inspector.selected_node = None

@@ -62,10 +62,11 @@ def test_node():
     b_node = Node(NodeProperties(a_node, *random_transform_values(random)))
 
     print('Test: Node rectangle positions depend on and are relative to the parent.')
-    random_change_in_x = random.uniform(-999, 999)
-    b_node_x_before = b_node.rect.x
-    a_node.transform.x += random_change_in_x
-    assert b_node.rect.x == b_node_x_before + int(random_change_in_x)
+    for i in range(128):
+        random_change_in_x = random.uniform(-999, 999)
+        b_node_x_before = b_node.rect.x
+        a_node.transform.x += random_change_in_x
+        assert abs(b_node.rect.x - (b_node_x_before + random_change_in_x)) < 1
 
     spr_node = SpriteNode(NodeProperties(a_node))
 

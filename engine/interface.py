@@ -11,6 +11,7 @@ MOUSE_AND_KEYBOARD_EVENTS = MOUSE_EVENTS + KEYBOARD_EVENTS
 
 COLOR_DEFAULT = (191, 131, 191)
 BACKGROUND_DEFAULT = (20, 20, 24)
+BACKGROUND_TRANSPARENT = (0, 0, 0, 0)
 
 def brighten_color_component(color_component, brightness):
     """Lighten or darken a single rgb value by the perceived brightness percentage."""
@@ -83,12 +84,18 @@ class Style:
         elif '_' in name:
             base_name, modifier = name.rsplit('_', 1)
             value = self.get(base_name, default)
-            if isinstance(value, pygame.Color) or type(value) == tuple:
+            if isinstance(value, pygame.Color) or isinstance(value, tuple):
                 value = self.modified_color(value, modifier, base_name)
             return value
-        if default is not Style.NO_VALUE:
+        elif default is not Style.NO_VALUE:
             return default
         raise KeyError(f'Not a key and not a modifier of a key: {name} in {self.dict}')
+
+    def __index__(self, name: str):
+        return self.get(name, Style.NO_VALUE)
+
+    def get_by_state(self, base_name: str, state: int):
+        return self.get(base_name + self.state_modifier[state], Style.NO_VALUE)
 
     @staticmethod
     def modified_color(color, modifier, base_name):
@@ -100,24 +107,17 @@ class Style:
             return brighten_color(saturate_color(color, -10), 0.25)
         return color
 
-    def __index__(self, name):
-        return self.get(name, Style.NO_VALUE)
-
-    def get_by_state(self, base_name, state):
-        return self.get(base_name + self.state_modifier[state], Style.NO_VALUE)
-
 class Button(SpriteNode):
     """A rectangular button. The argument callback is a function taking
     no parameters called on click.
     Takes the keyword arguments color, background and font, or a style object.
-    To add parameters to the callback or take additional styles,
-    it is recommended to inherit from this class.
+    Subclass to add parameters to the callback or customise supported styles.
     """
     event_handler = MOUSE_EVENTS
 
     def __init__(self, node_props, group, message='', callback=None, **kwargs):
-        super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
+        super().__init__(node_props, group, fill_color=self.style.get('background'))
 
         self.callback = callback
         self.message = message
@@ -163,14 +163,15 @@ class Button(SpriteNode):
         super().draw()
         if self._visible and self.dirty > 0:
             if self.style.get('image'):
+                self.image.fill(BACKGROUND_TRANSPARENT)
                 self.image.blit(self.switch_style('image'), (0, 0))
             else:
                 self.image.fill(self.switch_style('background'))
             if self.message:
                 position = (self.transform.width / 2, self.transform.height / 2)
                 color = self.switch_style('color')
-                text.draw(self.image, self.message, position,
-                          self.switch_style('font'), color=color, justify=True)
+                text.draw(self.image, self.message, position, color=color,
+                          font=self.switch_style('font'), justify=True)
 
     def switch_style(self, base_name):
         return self.style.get_by_state(base_name, self.state)
@@ -197,8 +198,7 @@ class TextEntry(SpriteNode):
     The arguments enter_callback(text) and edit_callback(text) are functions
     called when editing is completed and when the text changes, respectively.
     Takes the keyword arguments color, background and font, or a style object.
-    To add more parameters to the callback or take additional styles,
-    it is recommended to inherit from this class.
+    Subclass to add parameters to the callback or customise supported styles.
     Set allow_characters = '1234' or ['1', '2'] to only allow those characters.
     """
     event_handler = MOUSE_AND_KEYBOARD_EVENTS
@@ -273,8 +273,8 @@ class TextEntry(SpriteNode):
             else:
                 draw_message = self.text
             text.draw(self.image, draw_message, (4, self.transform.height / 2),
-                      font=self.style.get('font'),
-                      color=self.switch_style('color'), justify=(False, True))
+                      color=self.switch_style('color'), font=self.style.get('font'),
+                      justify=(False, True))
 
     def switch_style(self, base_name):
         return self.style.get_by_state(base_name, self.state)
@@ -332,6 +332,8 @@ class GridList(SpriteNode):
                     self.tiles[i].draw()
             if self.style.get('background') is not None:
                 self.image.fill(self.style.get('background'))
+            else:
+                self.image.fill(BACKGROUND_TRANSPARENT)
             for i, position in zip(indexes, self.tile_positions(indexes.start)):
                 if hasattr(self.tiles[i], 'image'):
                     self.image.blit(self.tiles[i].image, position)
@@ -429,6 +431,8 @@ class SpriteList(GridList):
                     node.draw()
             if self.style.get('background') is not None:
                 self.image.fill(self.style.get('background'))
+            else:
+                self.image.fill(BACKGROUND_TRANSPARENT)
             for node, correct_rect in zip(self.nodes, self.tile_rects()):
                 if node.transform.position != correct_rect.topleft:
                     node.transform.position = correct_rect.topleft
@@ -437,8 +441,8 @@ class SpriteList(GridList):
             self.grid_group.draw(self.image)
 
     # These method differs from the base method as it does not cascade to children
-    def cascade_set_rect(self, x, y):
-        self.rect.x, self.rect.y = int(x), int(y)
+    def _set_rect_position(self, x, y):
+        self.rect.x, self.rect.y = self.transform.rect_position(x, y)
         if self.dirty < 2:
             self.dirty = 1
 

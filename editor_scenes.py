@@ -38,14 +38,13 @@ class Editor(Scene):
 
         self.user_scene_class = user_scene_class
         self.user_scene = user_scene_class(self.user_surface, clock)
-        self.tree_tab = TreeTab(NodeProperties(self, TAB_PADDING, 32, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2),
+        self.tree_tab = TreeTab(NodeProperties(self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2),
             self.draw_group, self.user_scene, self.icon_sheet, style=tab_style)
-        self.inspector_tab = InspectorTab(NodeProperties(self, TAB_PADDING, 32 + TAB_PADDING + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 32 - TAB_PADDING * 2),
+        self.inspector_tab = InspectorTab(NodeProperties(self, TAB_PADDING, 64 + TAB_PADDING + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 32 - TAB_PADDING * 2),
             self.draw_group, style=tab_style)
         self.scene_tab = SceneTab(NodeProperties(self, scene_tab_x, 32, self.user_scene_rect.width, tab_style.get('tabsize')),
             self.draw_group, self.user_scene, style=tab_style)
 
-        inspector_scrollbar = interface.Scrollbar(NodeProperties(self.inspector_tab, width=5), self.draw_group)
         self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20), self.draw_group, 'Play', self.action_play,
                                             checked=self.play, background_checked=C_RED, background=tab_style.get('background_editor'))
         button_reload = interface.Button(NodeProperties(self, 330, 4, 40, 20), self.draw_group, 'Reload', self.action_reload,
@@ -96,8 +95,8 @@ class Editor(Scene):
         else:
             message = f'{rawtime}ms processing / frame'
 
-        text.draw(self.screen, message, (30, 5), color=C_LIGHT_ISH)
-        self.draw_group.repaint_rect((30, 5, 180, 20))
+        rect = text.draw(self.screen, message, (30, 5), color=C_LIGHT_ISH)
+        self.draw_group.repaint_rect(rect)
 
         return rects
 
@@ -107,6 +106,9 @@ class Editor(Scene):
         for event in pygame_events:
             if event.type == pygame.VIDEORESIZE:
                 self.resize()
+            elif event.type == pygame.VIDEOEXPOSE:
+                # Display is cleared when minimised, so redraw all elements
+                self.draw_group.repaint_rect(self.screen.get_rect())
             elif event.type == pygame.KEYDOWN:
                 if self.selected_node is not None:
                     if event.key == pygame.K_RIGHT:

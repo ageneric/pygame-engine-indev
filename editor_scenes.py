@@ -1,9 +1,11 @@
 import pygame
+from importlib import reload as importlib_reload
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
 from engine.base_node import NodeProperties
 from engine.spritesheet import TileSpriteSheet
+from engine.template import read_local_json, register_node, nodes_to_template, resolve_class
 from constants import *
 
 from tree_tab import TreeTab
@@ -14,50 +16,46 @@ TAB_PADDING = 8
 
 class Editor(Scene):
     """The editor that enables the user to edit a scene."""
-    def __init__(self, screen, clock, user_scene_class):
+    def __init__(self, screen, clock, user_module, user_path):
         super().__init__(screen, clock)
         self.create_draw_group((20, 20, 24))
 
-        # TODO: read module to check validity, get initial scene name/size
-        # TODO: move imports and reloads for module user_project.scenes here
-        user_scene_width = 450
-        user_scene_height = 450
-        scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
+        self.user_module = user_module
+        self.user_path = user_path
+        self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
 
         self.selected_node = None
         self.play = False
 
-        self.user_scene_rect = pygame.Rect(scene_tab_x, 52, user_scene_width, user_scene_height)
-        self.user_surface = pygame.Surface(self.user_scene_rect.size, 0, screen)
-
-        tab_style = interface.Style(background_editor=(20, 20, 24), background=(48, 48, 50),
-                                    background_indent=interface.brighten_color((48, 48, 50), 5),
-                                    tabsize=20, color=C_LIGHT, color_scroll=(74, 76, 82))
+        scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
+        tab_style = interface.Style(background_editor=(20, 20, 24),
+            background=(48, 48, 50), background_indent=(60, 60, 60),
+            tabsize=20, color=C_LIGHT, color_scroll=(100, 100, 100))
+        ui_style = interface.Style.from_kwargs(
+            dict(style=tab_style, background=(30, 36, 36)))
 
         self.icon_sheet = TileSpriteSheet('Assets/node_sprite_icons.png')
 
-        self.user_scene_class = user_scene_class
-        self.user_scene = user_scene_class(self.user_surface, clock)
         self.tree_tab = TreeTab(NodeProperties(self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2),
-            self.draw_group, self.user_scene, self.icon_sheet, style=tab_style)
-        self.inspector_tab = InspectorTab(NodeProperties(self, TAB_PADDING, 64 + TAB_PADDING + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 32 - TAB_PADDING * 2),
-            self.draw_group, style=tab_style)
-        self.scene_tab = SceneTab(NodeProperties(self, scene_tab_x, 32, self.user_scene_rect.width, tab_style.get('tabsize')),
-            self.draw_group, self.user_scene, style=tab_style)
+            self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
+        self.inspector_tab = InspectorTab(NodeProperties(self, TAB_PADDING, 64 + TAB_PADDING + self.screen_size_y // 2,
+            scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 32 - TAB_PADDING * 2),
+            self.draw_group, ui_style, style=tab_style)
+        self.scene_tab = SceneTab(NodeProperties(self, scene_tab_x, 52, self.user_scene_rect.width, 0),
+            self.draw_group, self.user_scene.draw_group, self.user_scene, style=tab_style)
 
-        self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20), self.draw_group, 'Play', self.action_play,
-                                            checked=self.play, background_checked=C_RED, background=tab_style.get('background_editor'))
-        button_reload = interface.Button(NodeProperties(self, 330, 4, 40, 20), self.draw_group, 'Reload', self.action_reload,
-                                         background=tab_style.get('background_editor'))
-
-        button_clear = interface.Button(NodeProperties(self, 400, 4, 100, 20), self.draw_group, 'Clear selection', self.action_clear,
-                                           background=tab_style.get('background_editor'))
-
+        self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20), self.draw_group, 'Play',
+            self.action_play, checked=self.play, background_checked=C_RED, background=tab_style.get('background_editor'))
+        button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20), self.draw_group, 'Reload',
+            self.action_reload, background=tab_style.get('background_editor'), color=tab_style.get('color'))
+        self.button_clear = interface.Button(NodeProperties(self, 80, 44 + TAB_PADDING + self.screen_size_y // 2,
+            18, 18, enabled=False), self.draw_group, '<-', self.action_clear, style=tab_style)
         self.recent_frames_ms = []
 
     def resize(self):
         self.resize_draw_group()
-        self.user_scene.resize_draw_group()
+        if hasattr(self.user_scene, 'background_surf'):
+            self.user_scene.resize_draw_group()
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         self.user_scene_rect.left = scene_tab_x
         if scene_tab_x - TAB_PADDING*2 < 16:
@@ -81,13 +79,14 @@ class Editor(Scene):
         user_rects = self.user_scene.draw()
         user_scene_top_left = self.user_scene_rect.topleft
         # Shift all user scene draw rectangles to align with blit destination
-        _local_rects_extend = rects.extend
-        if user_rects:
+        if user_rects or self.scene_tab.repaint_overlay:
             for rect in user_rects:
                 rect.move_ip(user_scene_top_left)
-            _local_rects_extend(user_rects)
-
-        self.screen.blit(self.user_surface, user_scene_top_left)
+            rects.extend(user_rects)
+            # Blit the user scene, then overlays, to the screen
+            self.screen.blit(self.user_surface, user_scene_top_left)
+            rects.append(self.scene_tab.box.rect)
+            self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
 
         # TODO: move this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
@@ -138,9 +137,22 @@ class Editor(Scene):
 
         self.user_scene.handle_events(pygame_events)
 
+    def create_user_scene(self):
+        configuration = read_local_json('config.engine')
+        user_scene_width = configuration['display_width']
+        user_scene_height = configuration['display_height']
+
+        scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
+        scene_rect = pygame.Rect(scene_tab_x, 52, user_scene_width, user_scene_height)
+        surface = pygame.Surface(scene_rect.size)
+
+        user_scene_class = getattr(self.user_module, configuration['entry_scene'])
+        return user_scene_class(surface, self.clock), scene_rect, surface
+
     def set_selected_node(self, node):
         self.selected_node = node
         self.inspector_tab.dirty = 1
+        self.button_clear.enabled = True
 
     def action_play(self, checked):
         self.play = checked
@@ -151,7 +163,9 @@ class Editor(Scene):
             self.toggle_play.dirty = 1
             self.action_play(False)  # stop playing
 
-        self.user_scene = self.user_scene_class(self.user_surface, self.clock)
+        self.selected_node = None
+        importlib_reload(self.user_module)
+        self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
         self.tree_tab.clear(self.user_scene)
         print('reload!')
 
@@ -159,6 +173,15 @@ class Editor(Scene):
         self.selected_node = None
         self.tree_tab.clear_selected_node()
         self.inspector_tab.dirty = 1
+        self.button_clear.enabled = False
+
+    def add_node(self, class_name, parent):
+        inst_class = resolve_class(self.user_scene, class_name)
+        if issubclass(inst_class, pygame.sprite.Sprite):
+            new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
+        else:
+            new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
+        register_node(nodes_to_template[parent], new_node)
 
 class Select(Scene):
     def __init__(self, screen, clock):

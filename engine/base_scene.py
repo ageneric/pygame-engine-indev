@@ -1,5 +1,5 @@
 import pygame
-from .template import load_nodes_wrapper, get_template
+from .template import load_nodes_wrapper, read_local_json
 
 class Scene:
     """Each scene manages the screen, updated and drawn
@@ -74,18 +74,18 @@ class Scene:
         Set background_color to None for a transparent background."""
         self.background_color = background_color
         self.background_surf = pygame.Surface(self.screen_size)
-        if self.background_color is not None:
-            self.background_surf.fill(self.background_color)
         if self.draw_group is None:
             self.draw_group = pygame.sprite.LayeredDirty()
-        self.draw_group.clear(self.screen, self.background_surf)
+        if self.background_color is not None:
+            self.background_surf.fill(self.background_color)
+            self.draw_group.clear(self.screen, self.background_surf)
         self.groups.append(self.draw_group)
 
     def resize_draw_group(self):
         self.background_surf = pygame.Surface(self.screen_size, 0, self.background_surf)
         if self.background_color is not None:
             self.background_surf.fill(self.background_color)
-        self.draw_group.clear(self.screen, self.background_surf)
+            self.draw_group.clear(self.screen, self.background_surf)
         self.draw_group.repaint_rect(self.screen.get_rect())
 
     def change_scene(self, new_scene, *args):
@@ -107,12 +107,12 @@ class Scene:
 
     # Generic user scene initialisation
     def load_template(self):
-        template = get_template(type(self).__name__)
+        filename = read_local_json('config.engine')['scenes_file'] + '.json'
+        template = read_local_json(filename)[type(self).__name__]
 
         groups = template.get('groups', [])
-        group_modes = template.get('group_modes', [])
         if len(groups) > 0:
-            self.create_draw_group(group_modes[0])
+            self.create_draw_group(groups[0])
 
             for group_name in groups[1:]:
                 new_group = pygame.sprite.Group()

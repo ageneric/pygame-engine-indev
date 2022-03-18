@@ -25,25 +25,27 @@ scene_template:
 
 import json
 import sys
+import inspect
 from importlib import import_module
 import engine.base_node
 from engine.base_node import NodeProperties
 import engine.interface
 
-def get_template(name):
+def read_local_json(filename: str):
     try:
-        with open(sys.path[2] + '/project_scenes.json') as f:
-            return json.load(f)[name]
+        with open(sys.path[1] + filename) as f:
+            return json.load(f)
     except FileNotFoundError:
         print('File not found!')
         return {}
-    except OSError:
-        print('Permission denied!')
+    except OSError as e:
+        print(f'Permission denied! {e}')
         return {}
 
 def load_nodes_wrapper(scene, template: dict):
     scene.user_classes = {}
     nodes_to_template.clear()
+    nodes_to_template[scene] = template
 
     for name in template.get('modules'):
         module = import_module(name)
@@ -61,30 +63,32 @@ def load_nodes(scene, template: dict, parent):
             load_nodes(scene, template_node, new_node)
 
 def instantiate(scene, template: dict, parent):
-    # Resolve the class either from a library module or user module
-    name = template['class']
-    if name in NODE_CLASSES:
-        inst_class = getattr(engine.base_node, name)
-    elif name in INTERFACE_CLASSES:
-        inst_class = getattr(engine.interface, name)
-    else:
-        inst_class = scene.user_classes[template['class']]
-
+    inst_class = resolve_class(scene, template['class'])
     node_props = NodeProperties(parent, *template['data_node'])
     arguments = template.get('args', [])
     keyword_arguments = template.get('kwargs', {})
 
     groups = template.get('data_groups', None)
     if groups is None:
-        return inst_class(node_props, *arguments, **keyword_arguments)
+        new_node = inst_class(node_props, *arguments, **keyword_arguments)
     else:
-        scene_groups = scene.groups['data_groups']
         if isinstance(groups, int):
-            groups = scene_groups[groups]
+            groups = scene.groups[groups]
         elif hasattr(groups, '__index__'):  # includes list, tuple
-            groups = [scene_groups[group] for group in groups]
+            groups = [scene.groups[group] for group in groups]
 
-        return inst_class(node_props, groups, *arguments, **keyword_arguments)
+        new_node = inst_class(node_props, groups, *arguments, **keyword_arguments)
+    nodes_to_template[new_node] = template
+    return new_node
+
+def resolve_class(scene, name):
+    # Resolve the class either from a library module or user module
+    if name in NODE_CLASSES:
+        return getattr(engine.base_node, name)
+    elif name in INTERFACE_CLASSES:
+        return getattr(engine.interface, name)
+    else:
+        return scene.user_classes[name]
 
 def register_node(template: dict, new_node):
     transform = new_node.transform
@@ -94,10 +98,16 @@ def register_node(template: dict, new_node):
                       transform.anchor_x, transform.anchor_y, new_node.enabled),
         'nodes': []
     }
-    # TODO: implement data_groups and args fields
+    signature = inspect.signature(new_node.__class__)
+    if signature.parameters.get('groups') is not None:
+        new_template['groups'] = new_node.groups
 
+    for attribute in signature.parameters:
+        if attribute != 'node_props' and attribute != 'groups':
+            new_template[attribute] = getattr(new_node, attribute, None)
+
+    nodes_to_template[new_node] = new_template
     template['nodes'].append(new_template)
 
 def update_template(tree):
     pass
-

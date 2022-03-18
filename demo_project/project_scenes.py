@@ -1,5 +1,4 @@
 from engine.base_scene import Scene
-import engine.template
 
 class ExampleRemote(Scene):
     def __init__(self, screen, clock):

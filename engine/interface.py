@@ -204,16 +204,16 @@ class TextEntry(SpriteNode):
     event_handler = MOUSE_AND_KEYBOARD_EVENTS
 
     def __init__(self, node_props, groups, default_text='', enter_callback=None,
-                 edit_callback=None, allow_characters=None, **kwargs):
+                 edit_callback=None, allow_characters=None, cursor='|', **kwargs):
         super().__init__(node_props, groups)
         self.style = Style.from_kwargs(kwargs)
 
         self.enter_callback = enter_callback
         self.edit_callback = edit_callback
-
         self.state = State.idle
         self.text = default_text
         self.allow_characters = allow_characters
+        self.cursor_text = cursor
 
     def on_enter(self):
         if self.enter_callback is not None:
@@ -269,10 +269,10 @@ class TextEntry(SpriteNode):
             background = self.switch_style('background')
             self.image.fill(background)
             if self.state == State.selected:
-                draw_message = self.text + '|'
+                draw_message = self.text + self.cursor_text
             else:
                 draw_message = self.text
-            text.draw(self.image, draw_message, (4, self.transform.height / 2),
+            text.draw(self.image, draw_message, (text.BOX_PADDING, self.transform.height / 2),
                       color=self.switch_style('color'), font=self.style.get('font'),
                       justify=(False, True))
 

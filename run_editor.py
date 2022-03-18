@@ -9,7 +9,6 @@ import editor_scenes
 from constants import *
 
 LAST_PROJECT_PATH = "C:/Users/maths/Desktop/Programming/Working/engine-pygame (6)/demo_project/"
-SCENE_NAME = "ExampleRemote"
 
 print('1/3 Starting: pygame initialisation')
 clock = pg.time.Clock()
@@ -27,10 +26,9 @@ def main():
     pg.key.set_repeat(500, 50)
 
     print('3/3 Starting: main loop')
-    sys.path.insert(2, LAST_PROJECT_PATH)
-
-    scenes = import_module('project_scenes')
-    scene = editor_scenes.Editor(screen, clock, getattr(scenes, SCENE_NAME))
+    sys.path.insert(1, LAST_PROJECT_PATH)
+    user_scenes = import_module('project_scenes')
+    scene = editor_scenes.Editor(screen, clock, user_scenes, LAST_PROJECT_PATH)
 
     running = True
 

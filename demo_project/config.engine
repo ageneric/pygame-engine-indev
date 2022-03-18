@@ -1,0 +1,6 @@
+{
+  "scenes_file": "project_scenes",
+  "entry_scene": "ExampleRemote",
+  "display_width": 550,
+  "display_height": 400
+}

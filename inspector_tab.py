@@ -3,7 +3,7 @@ import ast
 
 from engine import text as text
 from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
-from engine.interface import Style, Scrollbar, State, MOUSE_EVENTS, GridList, TextEntry, brighten_color
+from engine.interface import Style, Scrollbar, State, TextEntry
 
 from other_tab import TabHeading, string_color
 
@@ -43,97 +43,11 @@ class NumberEntry(TextEntry):
         error_string = '_error' if self.parse() is None else ''
         return self.style.get_by_state(base_name + error_string, self.state)
 
-class ListSelector(GridList):
-    event_handler = MOUSE_EVENTS
-
-    def __init__(self, node_props, group, horizontal=False, spacing=20, options=None, **kwargs):
-        super().__init__(node_props, group, horizontal, spacing, **kwargs)
-        self.tiles = options
-        self.hovered_index = None
-        self.transform.height = self.spacing * len(self.tiles)
-
-    def draw(self):
-        SpriteNode.draw(self)
-        if self._visible and self.dirty > 0:
-            self.image.fill(self.style.get('background'))
-            indexes = self.indexes_in_viewport()
-            for i, position in zip(indexes, self.tile_positions(indexes.start)):
-                if i == self.hovered_index:
-                    text.box(self.image, self.tiles[i], position, self.transform.width, self.spacing,
-                             box_color=self.style.get('background_selected'), color=self.style.get('color'))
-                else:
-                    text.box(self.image, self.tiles[i], position, self.transform.width, self.spacing,
-                             box_color=self.style.get('background'), color=self.style.get('color'))
-
-    def event(self, event):
-        if self.rect.collidepoint(event.pos):
-            index = self.position_to_index((event.pos[0] - self.rect.x,
-                                            event.pos[1] - self.rect.y))
-            if 0 <= index < len(self.tiles):
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.parent.text = self.tiles[index]
-                    if self.parent.dirty < 1:
-                        self.parent.dirty = 1
-                elif event.type == pygame.MOUSEMOTION:
-                    self.hovered_index = index
-                    self.dirty = 1
-        elif event.type == pygame.MOUSEMOTION:
-            self.hovered_index = None
-            self.dirty = 1
-
-class DropdownEntry(TextEntry):
-    event_handler = MOUSE_EVENTS
-
-    def __init__(self, node_props, group, horizontal=False, default_text='', options=None,
-                 enter_callback=None, **kwargs):
-        super().__init__(node_props, group, default_text, enter_callback, **kwargs)
-        self.options = options
-        self.grid = ListSelector(NodeProperties(self, 0, self.transform.height,
-                                                self.transform.width, 0),
-                                 group, horizontal, self.transform.height, options, style=self.style,
-                                 background=brighten_color(self.style.get('background'), -10))
-        self.grid.enabled = False
-
-    def event(self, event):
-        if self.state == State.locked or not self._visible:
-            return
-
-        last_state = self.state
-        last_text = self.text
-
-        if event.type in MOUSE_EVENTS:
-            if self.rect.collidepoint(event.pos) or self.grid.rect.collidepoint(event.pos):
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    self.state = State.selected
-                    self.grid.options = self.options
-                    self.grid.enabled = True
-                elif last_state == State.idle:
-                    self.state = State.hovered
-            elif last_state == State.hovered or event.type == pygame.MOUSEBUTTONDOWN:
-                self.state = State.idle
-                self.grid.enabled = False
-
-        if last_state != self.state or last_text != self.text:
-            self.dirty = 1
-
-    def draw(self):
-        SpriteNode.draw(self)
-        if self._visible and self.dirty > 0:
-            background = self.switch_style('background')
-            self.image.fill(background)
-            if self.state == State.selected:
-                draw_message = self.text
-            else:
-                draw_message = self.text + ' v'
-            text.draw(self.image, draw_message, (4, self.transform.height / 2),
-                      color=self.switch_style('color'), font=self.style.get('font'),
-                      justify=(False, True))
-
 class InspectorTab(SpriteNode):
     """Expected environment: parent has property 'selected_node'"""
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, **kwargs):
+    def __init__(self, node_props: NodeProperties, group, ui_style, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
@@ -146,8 +60,7 @@ class InspectorTab(SpriteNode):
         self.widget_group = group
         self.selected_node = None
 
-        self.widget_style = Style.from_kwargs(dict(style=self.style, color_error=(251, 110, 110),
-                                                   background=self.style.get('background_indent')))
+        self.widget_style = ui_style
         self.widgets = Node(NodeProperties(self, 5, 5))
 
     def update(self):
@@ -197,8 +110,10 @@ class InspectorTab(SpriteNode):
 
     def edit_transform_entry(self, x, y, width, height, bound_name, allow_types):
         NumberEntry(NodeProperties(self.widgets, x, y, width, height), self.widget_group,
-                    str(getattr(self.selected_node.transform, bound_name)), bound_name, allow_types=allow_types,
-                    style=self.widget_style, enter_callback=self.set_selected_transform_attribute)
+                    str(getattr(self.selected_node.transform, bound_name)), bound_name,
+                    allow_types=allow_types, style=self.widget_style,
+                    background=self.widget_style.get('background_indent'),
+                    enter_callback=self.set_selected_transform_attribute)
 
     def set_selected_transform_attribute(self, literal, bound_name):
         setattr(self.selected_node.transform, bound_name, literal)

@@ -8,8 +8,8 @@ from engine.spritesheet import TileSpriteSheet
 from engine.template import read_local_json, register_node, nodes_to_template, resolve_class
 from constants import *
 
+from other_tab import SceneTab, ProjectFileTab
 from tree_tab import TreeTab
-from other_tab import SceneTab
 from inspector_tab import InspectorTab
 
 TAB_PADDING = 8
@@ -33,23 +33,35 @@ class Editor(Scene):
             tabsize=20, color=C_LIGHT, color_scroll=(100, 100, 100))
         ui_style = interface.Style.from_kwargs(
             dict(style=tab_style, background=(30, 36, 36)))
+        font_small = pygame.font.SysFont('Calibri', 15)
 
-        self.icon_sheet = TileSpriteSheet('Assets/node_sprite_icons.png')
+        self.icon_sheet = TileSpriteSheet('Assets/EditorIcons.png')
 
-        self.tree_tab = TreeTab(NodeProperties(self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2),
+        self.tree_tab = TreeTab(NodeProperties(
+            self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING),
             self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
-        self.inspector_tab = InspectorTab(NodeProperties(self, TAB_PADDING, 64 + TAB_PADDING + self.screen_size_y // 2,
-            scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 32 - TAB_PADDING * 2),
+        self.inspector_tab = InspectorTab(NodeProperties(
+            self, TAB_PADDING, 68 + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2,
+            self.screen_size_y // 2 - 60 - TAB_PADDING * 2),
             self.draw_group, ui_style, style=tab_style)
-        self.scene_tab = SceneTab(NodeProperties(self, scene_tab_x, 52, self.user_scene_rect.width, 0),
+        self.scene_tab = SceneTab(NodeProperties(
+            self, scene_tab_x, 52, self.user_scene_rect.width, 0),
             self.draw_group, self.user_scene.draw_group, self.user_scene, style=tab_style)
+        self.project_file_tab = ProjectFileTab(NodeProperties(
+            self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
+            self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
+            self.draw_group, style=tab_style)
 
-        self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20), self.draw_group, 'Play',
-            self.action_play, checked=self.play, background_checked=C_RED, background=tab_style.get('background_editor'))
-        button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20), self.draw_group, 'Reload',
-            self.action_reload, background=tab_style.get('background_editor'), color=tab_style.get('color'))
-        self.button_clear = interface.Button(NodeProperties(self, 80, 44 + TAB_PADDING + self.screen_size_y // 2,
-            18, 18, enabled=False), self.draw_group, '<-', self.action_clear, style=tab_style)
+        self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20),
+            self.draw_group, 'Play', self.action_play, checked=self.play,
+            background_checked=C_RED, background=tab_style.get('background_editor'))
+        button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20),
+            self.draw_group, 'Reload', self.action_reload,
+            background=tab_style.get('background_editor'), color=tab_style.get('color'))
+        self.button_clear = interface.Button(NodeProperties(
+            self, 80, self.inspector_tab.transform.y - 20, 33, 18, enabled=False),
+            self.draw_group, '<\u2014', self.action_clear, style=tab_style, font=font_small)
+
         self.recent_frames_ms = []
 
     def resize(self):

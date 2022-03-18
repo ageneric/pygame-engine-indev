@@ -179,28 +179,34 @@ class TreeTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = interface.Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-                   group, 'Node Tree', style=self.style)
-        self.grid = TreeTabGrid(NodeProperties(self, 5, 25, max(0, self.transform.width - 10),
-                                               max(0, self.transform.height - 120)),
+        TabHeading(
+            NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            group, 'Node Tree', style=self.style)
+        self.grid = TreeTabGrid(
+            NodeProperties(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),
             group, tree, icon_sheet, color=self.style.get('color'),
             background=self.style.get('background_indent'))
-        interface.Scrollbar(NodeProperties(self.grid, width=2), group,
-            style=self.style)
+        interface.Scrollbar(
+            NodeProperties(self.grid, width=2), group, style=self.style)
 
         class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
         if hasattr(self.grid.tree, 'user_classes'):
             class_options.extend(self.grid.tree.user_classes.keys())
 
-        self.toggle = interface.Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
+        self.toggle = interface.Toggle(
+            NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
             group, 'Nodes v', style=ui_style, callback=self.toggle_grid, checked=self.grid.enabled)
-        self.pick_class = DropdownEntry(NodeProperties(self, 5, self.transform.height - 90, self.transform.width - 120, 18),
-                                        group, options=class_options, style=ui_style)
-        self.button_add = interface.Button(NodeProperties(self, self.transform.width - 105, self.transform.height - 90,
-                                                          100, 18), group, 'Add +', style=ui_style, callback=self.action_add_node)
-        self.button_add_child = interface.Button(NodeProperties(self, self.transform.width - 105, self.transform.height - 70,
-                                                                100, 18), group, 'Add as Child +', style=ui_style, callback=self.action_add_child_node)
-        self.button_delete = interface.Button(NodeProperties(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom),
+        self.pick_class = DropdownEntry(
+            NodeProperties(self, 5, self.transform.height - 90, self.transform.width - 115, 17),
+            group, options=class_options, style=ui_style)
+        self.button_add = interface.Button(
+            NodeProperties(self, self.transform.width - 105, self.transform.height - 90, 100, 20),
+            group, 'Add +', style=ui_style, callback=self.action_add_node)
+        self.button_add_child = interface.Button(
+            NodeProperties(self, self.transform.width - 105, self.transform.height - 68, 100, 20),
+            group, 'Add as Child +', style=ui_style, callback=self.action_add_child_node)
+        self.button_delete = interface.Button(
+            NodeProperties(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom),
             group, 'Delete', style=ui_style, callback=self.action_delete_node, background=(75, 35, 30))
 
     def update(self):

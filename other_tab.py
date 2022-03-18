@@ -33,6 +33,21 @@ class TabHeading(SpriteNode):
             if self.resize_to_fit:
                 self.transform.size = rect.size  # resize to fit the text box
 
+class ProjectFileTab(SpriteNode):
+    _layer = 0
+
+    def __init__(self, node_props: NodeProperties, group, **kwargs):
+        super().__init__(node_props, group)
+        self.style = Style.from_kwargs(kwargs)
+
+        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+                   group, 'Project Files', style=self.style)
+
+    def draw(self):
+        super().draw()
+        if self._visible and self.dirty > 0:
+            self.image.fill(self.style.get('background'))
+
 class SceneTab(Node):
     def __init__(self, node_props: NodeProperties, group_, overlay_group, user_scene, style):
         super().__init__(node_props)

@@ -1,4 +1,5 @@
 import pygame
+from .template import load_nodes_wrapper, get_template
 
 class Scene:
     """Each scene manages the screen, updated and drawn
@@ -18,6 +19,8 @@ class Scene:
         self.flag_new_scene_args = []
         self.background_color = None
         self.event_handlers = {}
+
+        self.template = None
 
     def update(self):
         for child in self.nodes:
@@ -101,3 +104,20 @@ class Scene:
     @property
     def screen_size(self) -> (int, int):
         return self.screen.get_size()
+
+    # Generic user scene initialisation
+    def load_template(self):
+        template = get_template(type(self).__name__)
+
+        groups = template.get('groups', [])
+        group_modes = template.get('group_modes', [])
+        if len(groups) > 0:
+            self.create_draw_group(group_modes[0])
+
+            for group_name in groups[1:]:
+                new_group = pygame.sprite.Group()
+                self.groups.append(new_group)
+                setattr(self, group_name, new_group)
+
+        load_nodes_wrapper(self, template)
+        self.template = template

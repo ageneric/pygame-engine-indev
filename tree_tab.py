@@ -106,12 +106,13 @@ class TreeTabGrid(GridList):
             self.dirty = 1
 
     def entry_redraw(self, entry):
+        background_name = 'background'
         if entry == self.selected_entry:
-            background = self.style.get('background_selected')
+            background_name = 'background_selected'
         elif entry == self.hovered_entry:
-            background = self.style.get('background_hovered')
-        else:
-            background = self.style.get('background')
+            background_name = 'background_hovered'
+        background = self.style.get(background_name)
+
         if entry.reference_visible >= 0:
             icon_image = self.icon_images[entry.reference_enabled][1]
         else:
@@ -145,25 +146,23 @@ class TreeTabGrid(GridList):
                                             event.pos[1] - self.rect.y))
             if 0 <= index < len(self.tiles):
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.set_and_redraw_entry(self.tiles[index], 'selected_entry')
+                    self.replace_entry(self.tiles[index], 'selected_entry')
                     self.parent.parent.set_selected_node(self.selected_entry.weak_reference())
                 elif event.type == pygame.MOUSEMOTION:
-                    self.set_and_redraw_entry(self.tiles[index], 'hovered_entry')
-        else:
-            if event.type == pygame.MOUSEMOTION:
-                previous_entry = self.hovered_entry
-                if self.hovered_entry is not None:
-                    self.hovered_entry = None
-                    self.entry_redraw(previous_entry)
+                    self.replace_entry(self.tiles[index], 'hovered_entry')
+        elif event.type == pygame.MOUSEMOTION:
+            self.replace_entry(None, 'hovered_entry')
 
-    def set_and_redraw_entry(self, new_entry, attribute_name):
+    def replace_entry(self, new_entry, attribute_name):
         previous_entry = getattr(self, attribute_name, None)
-        if new_entry is previous_entry:  # skip if the entry does not changed
+        if new_entry is previous_entry:  # skip if the entry does not change
             return
-        setattr(self, attribute_name, new_entry)  # reassigned here (read by entry_redraw)
+        setattr(self, attribute_name, new_entry)  # reassign entry (read by entry_redraw)
         if previous_entry is not None:
             self.entry_redraw(previous_entry)  # previous entry un-highlighted
-        self.entry_redraw(new_entry)  # newly stored entry is highlighted
+        if new_entry is not None:
+            self.entry_redraw(new_entry)  # newly stored entry is highlighted
+        return new_entry
 
     def clear(self, tree):
         self.tree = tree
@@ -210,3 +209,6 @@ class TreeTab(SpriteNode):
 
     def clear(self, tree):
         self.grid.clear(tree)
+
+    def clear_selected_node(self):
+        self.grid.replace_entry(None, 'selected_entry')

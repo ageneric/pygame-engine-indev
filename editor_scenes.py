@@ -50,6 +50,9 @@ class Editor(Scene):
         button_reload = interface.Button(NodeProperties(self, 330, 4, 40, 20), self.draw_group, 'Reload', self.action_reload,
                                          background=tab_style.get('background_editor'))
 
+        button_clear = interface.Button(NodeProperties(self, 400, 4, 100, 20), self.draw_group, 'Clear selection', self.action_clear,
+                                           background=tab_style.get('background_editor'))
+
         self.recent_frames_ms = []
 
     def resize(self):
@@ -151,6 +154,11 @@ class Editor(Scene):
         self.user_scene = self.user_scene_class(self.user_surface, self.clock)
         self.tree_tab.clear(self.user_scene)
         print('reload!')
+
+    def action_clear(self):
+        self.selected_node = None
+        self.tree_tab.clear_selected_node()
+        self.inspector_tab.dirty = 1
 
 class Select(Scene):
     def __init__(self, screen, clock):

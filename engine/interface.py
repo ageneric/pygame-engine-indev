@@ -115,9 +115,9 @@ class Button(SpriteNode):
     """
     event_handler = MOUSE_EVENTS
 
-    def __init__(self, node_props, group, message='', callback=None, **kwargs):
+    def __init__(self, node_props, groups, message='', callback=None, **kwargs):
         self.style = Style.from_kwargs(kwargs)
-        super().__init__(node_props, group, fill_color=self.style.get('background'))
+        super().__init__(node_props, groups, fill_color=self.style.get('background'))
 
         self.callback = callback
         self.message = message
@@ -181,8 +181,8 @@ class Toggle(Button):
     checked, and on clicked, it is flipped and passed to the callback.
     Takes also 'checked' and 'unchecked' modifiers of the colour, background
     and image styles, for example color_checked_hovered=(80, 0, 0)."""
-    def __init__(self, node_props, group, message='', callback=None, checked=False, **kwargs):
-        super().__init__(node_props, group, message, callback, **kwargs)
+    def __init__(self, node_props, groups, message='', callback=None, checked=False, **kwargs):
+        super().__init__(node_props, groups, message, callback, **kwargs)
         self.checked = checked
 
     def on_click(self):
@@ -203,9 +203,9 @@ class TextEntry(SpriteNode):
     """
     event_handler = MOUSE_AND_KEYBOARD_EVENTS
 
-    def __init__(self, node_props, group, default_text='', enter_callback=None,
+    def __init__(self, node_props, groups, default_text='', enter_callback=None,
                  edit_callback=None, allow_characters=None, **kwargs):
-        super().__init__(node_props, group)
+        super().__init__(node_props, groups)
         self.style = Style.from_kwargs(kwargs)
 
         self.enter_callback = enter_callback
@@ -292,8 +292,8 @@ class GridList(SpriteNode):
     Takes the keyword argument background, or a style object, specifying the
     background color. This may be set to None for a transparent background.
     """
-    def __init__(self, node_props, group, horizontal=False, spacing=20, tile_generator=None, **kwargs):
-        super().__init__(node_props, group)
+    def __init__(self, node_props, groups, horizontal=False, spacing=20, tile_generator=None, **kwargs):
+        super().__init__(node_props, groups)
         self.style = Style.from_kwargs(kwargs)
         self.spacing = spacing
         self.scroll_pixels = 0
@@ -326,17 +326,19 @@ class GridList(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
-            indexes = self.indexes_in_viewport()
-            if self.use_draw_method:
-                for i in indexes:
-                    self.tiles[i].draw()
             if self.style.get('background') is not None:
                 self.image.fill(self.style.get('background'))
             else:
                 self.image.fill(BACKGROUND_TRANSPARENT)
-            for i, position in zip(indexes, self.tile_positions(indexes.start)):
-                if hasattr(self.tiles[i], 'image'):
-                    self.image.blit(self.tiles[i].image, position)
+
+            indexes = self.indexes_in_viewport()
+            if self.use_draw_method:
+                for i in indexes:
+                    self.tiles[i].draw()
+            else:
+                for i, position in zip(indexes, self.tile_positions(indexes.start)):
+                    if hasattr(self.tiles[i], 'image'):
+                        self.image.blit(self.tiles[i].image, position)
 
     def indexes_in_viewport(self):
         start = self.scroll_pixels // self.spacing
@@ -403,9 +405,9 @@ class SpriteList(GridList):
     """
     is_origin = 'SpriteList'
 
-    def __init__(self, node_props, group, tile_generator=None, horizontal=False, **kwargs):
+    def __init__(self, node_props, groups, tile_generator=None, horizontal=False, **kwargs):
         self.grid_group = pygame.sprite.Group()
-        super().__init__(node_props, group, horizontal, tile_generator=tile_generator, **kwargs)
+        super().__init__(node_props, groups, horizontal, tile_generator=tile_generator, **kwargs)
         assert not self.tiles  # catch accidental use of tiles list
         self.tiles = self.nodes
 

@@ -113,10 +113,10 @@ class Node:
         # Check that the supplied node has the necessary attributes to be the parent
         if not hasattr(self.parent, 'nodes'):
             raise ValueError('Missing nodes attribute on parent, NodeProperties[0]'
-                          + f'(got {self.parent})\nGive a node, scene, or related type')
+                          + f'(got {self.parent})\nUsually a Node, Scene, or related type')
         elif not (hasattr(self.parent, 'rect') or hasattr(self.parent, 'is_origin')):
             raise ValueError('Missing rect or is_origin on parent, NodeProperties[0]'
-                          + f'(got {self.parent})\nGive a node, scene, or related type')
+                          + f'(got {self.parent})\nUsually a node, Scene, or related type')
         self.parent.nodes.append(self)
         self.transform = Transform(*node_props[1:7], node=self)
         self._enabled = node_props[7]
@@ -212,12 +212,12 @@ class Node:
             self.nodes[0].remove()
 
 class SpriteNode(Node, pygame.sprite.DirtySprite):
-    def __init__(self, node_props: NodeProperties, *groups, image=None, fill_color=None):
-        if groups and isinstance(groups[0], pygame.sprite.AbstractGroup):
-            pygame.sprite.DirtySprite.__init__(self, *groups)
-        else:
+    def __init__(self, node_props: NodeProperties, groups=None, image=None, fill_color=None):
+        try:
+            pygame.sprite.DirtySprite.__init__(self, groups)
+        except TypeError:  # for example when groups = None (default)
             print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.'
-                  + '\nThis may be because the "group" parameter was missed.')
+                  + f'\nThis may be because the "group" parameter was missed. ({self})')
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)

@@ -5,7 +5,7 @@ import engine.interface as interface
 from engine.base_scene import Scene
 from engine.base_node import NodeProperties
 from engine.spritesheet import TileSpriteSheet
-from engine.template import read_local_json, register_node, nodes_to_template, resolve_class
+import engine.template as template
 from constants import *
 
 from other_tab import SceneTab, ProjectFileTab
@@ -58,6 +58,10 @@ class Editor(Scene):
         button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20),
             self.draw_group, 'Reload', self.action_reload,
             background=tab_style.get('background_editor'), color=tab_style.get('color'))
+
+        button_save = interface.Button(NodeProperties(self, 440, 4, 40, 20),
+                                       self.draw_group, 'Save', self.save_scene_changes,
+                                       background=tab_style.get('background_editor'), color=tab_style.get('color'))
         self.button_clear = interface.Button(NodeProperties(
             self, 80, self.inspector_tab.transform.y - 20, 33, 18, enabled=False),
             self.draw_group, '<\u2014', self.action_clear, style=tab_style, font=font_small)
@@ -150,7 +154,7 @@ class Editor(Scene):
         self.user_scene.handle_events(pygame_events)
 
     def create_user_scene(self):
-        configuration = read_local_json('config.engine')
+        configuration = template.read_local_json('config.engine')
         user_scene_width = configuration['display_width']
         user_scene_height = configuration['display_height']
 
@@ -179,7 +183,7 @@ class Editor(Scene):
         importlib_reload(self.user_module)
         self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
         self.tree_tab.clear(self.user_scene)
-        print('reload!')
+        print('Engine reload successful')
 
     def action_clear(self):
         self.selected_node = None
@@ -188,12 +192,18 @@ class Editor(Scene):
         self.button_clear.enabled = False
 
     def add_node(self, class_name, parent):
-        inst_class = resolve_class(self.user_scene, class_name)
+        inst_class = template.resolve_class(self.user_scene, class_name)
         if issubclass(inst_class, pygame.sprite.Sprite):
             new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
         else:
             new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
-        register_node(nodes_to_template[parent], new_node)
+        template.register_node(template.nodes_to_template[parent], new_node)
+
+    def save_scene_changes(self):
+        filename = template.read_local_json('config.engine')['scenes_file'] + '.json'
+        project_templates = template.read_local_json(filename)
+        project_templates[type(self.user_scene).__name__] = self.user_scene.template
+        template.write_local_json(filename, project_templates)
 
 class Select(Scene):
     def __init__(self, screen, clock):

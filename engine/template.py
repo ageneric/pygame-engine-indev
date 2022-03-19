@@ -2,6 +2,7 @@
 
 NODE_CLASSES = ('Node', 'SpriteNode')
 INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'GridList')
+DATA_NODE = ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled')
 
 nodes_to_template = {}
 
@@ -33,7 +34,7 @@ import engine.interface
 
 def read_local_json(filename: str):
     try:
-        with open(sys.path[1] + filename) as f:
+        with open(sys.path[1] + filename, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         print('File not found!')
@@ -41,6 +42,15 @@ def read_local_json(filename: str):
     except OSError as e:
         print(f'Permission denied! {e}')
         return {}
+
+def write_local_json(filename, data):
+    try:
+        with open(sys.path[1] + filename, 'w+') as f:
+            json.dump(data, f, separators=(',', ':'))
+    except FileNotFoundError:
+        print('File not found!')
+    except OSError as e:
+        print(f'Permission denied! {e}')
 
 def load_nodes_wrapper(scene, template: dict):
     scene.user_classes = {}
@@ -109,5 +119,21 @@ def register_node(template: dict, new_node):
     nodes_to_template[new_node] = new_template
     template['nodes'].append(new_template)
 
-def update_template(tree):
-    pass
+def update_node(node, attribute: str):
+    print(node, attribute)
+    template = nodes_to_template.get(node, None)
+    if template is None:
+        return
+
+    arguments = template.get('args', {})
+    if attribute in arguments:
+        arguments[attribute] = getattr(node, attribute, None)
+        template['args'] = arguments
+    elif attribute == DATA_NODE[-1]:
+        template['data_node'][-1] = getattr(node, attribute, None)
+    elif attribute in DATA_NODE and hasattr(node, 'transform'):
+        data_node_value = list(template['data_node'])
+        data_node_value[DATA_NODE.index(attribute)] = getattr(node.transform, attribute)
+        template['data_node'] = data_node_value
+
+    print(template)

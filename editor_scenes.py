@@ -1,5 +1,7 @@
 import pygame
-from importlib import reload as importlib_reload
+import sys
+from importlib import import_module, reload
+
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
@@ -72,17 +74,22 @@ class Editor(Scene):
         self.resize_draw_group()
         if hasattr(self.user_scene, 'background_surf'):
             self.user_scene.resize_draw_group()
+
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         self.user_scene_rect.left = scene_tab_x
         if scene_tab_x - TAB_PADDING*2 < 16:
-            self.tree_tab.enabled = False
-            self.inspector_tab.enabled = False
+            self.tree_tab.enabled = self.inspector_tab.enabled = False
         else:
-            self.tree_tab.enabled = True
-            self.tree_tab.transform.width = scene_tab_x - TAB_PADDING*2
-            self.inspector_tab.enabled = True
-            self.inspector_tab.transform.width = scene_tab_x - TAB_PADDING*2
+            self.tree_tab.enabled = self.inspector_tab.enabled = True
+            self.tree_tab.transform.size = (
+                scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING)
+            self.inspector_tab.transform.size = (
+                scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 60 - TAB_PADDING * 2)
+            self.project_file_tab.transform.size = (
+                self.user_scene_rect.width, self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72)
+            self.inspector_tab.transform.y = 68 + self.screen_size_y // 2
         self.scene_tab.transform.x = scene_tab_x
+        self.project_file_tab.transform.x = scene_tab_x
         self.scene_tab.transform.width = self.user_scene_rect.width
 
     def update(self):
@@ -127,6 +134,7 @@ class Editor(Scene):
             elif event.type == pygame.VIDEOEXPOSE:
                 # Display is cleared when minimised, so redraw all elements
                 self.draw_group.repaint_rect(self.screen.get_rect())
+                self.user_scene.draw_group.repaint_rect(self.user_scene.screen.get_rect())
             elif event.type == pygame.KEYDOWN:
                 if self.selected_node is not None:
                     if event.key == pygame.K_RIGHT:
@@ -138,7 +146,7 @@ class Editor(Scene):
                     if event.key == pygame.K_UP:
                         self.selected_node.transform.y -= 1
                     if event.key == pygame.K_DELETE:
-                        self.selected_node.remove()
+                        self.remove_selected_node()
 
         if not self.play:
             return
@@ -154,7 +162,7 @@ class Editor(Scene):
         self.user_scene.handle_events(pygame_events)
 
     def create_user_scene(self):
-        configuration = template.read_local_json('config.engine')
+        configuration = template.read_local_json('project_config')
         user_scene_width = configuration['display_width']
         user_scene_height = configuration['display_height']
 
@@ -170,6 +178,13 @@ class Editor(Scene):
         self.inspector_tab.dirty = 1
         self.button_clear.enabled = True
 
+    def remove_selected_node(self):
+        if not self.play:
+            template.nodes_to_template[self.selected_node.parent]['nodes'].remove(template.nodes_to_template[self.selected_node])
+            del template.nodes_to_template[self.selected_node]
+        self.selected_node.remove()
+        self.selected_node = None
+
     def action_play(self, checked):
         self.play = checked
 
@@ -180,7 +195,7 @@ class Editor(Scene):
             self.action_play(False)  # stop playing
 
         self.selected_node = None
-        importlib_reload(self.user_module)
+        reload(self.user_module)
         self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
         self.tree_tab.clear(self.user_scene)
         print('Engine reload successful')
@@ -197,21 +212,56 @@ class Editor(Scene):
             new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
         else:
             new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
-        template.register_node(template.nodes_to_template[parent], new_node)
+        if not self.play:
+            template.register_node(self.user_scene, template.nodes_to_template[parent], new_node)
 
     def save_scene_changes(self):
-        filename = template.read_local_json('config.engine')['scenes_file'] + '.json'
-        project_templates = template.read_local_json(filename)
+        scenes_name = template.read_local_json('project_config')['scenes_file']
+        project_templates = template.read_local_json(scenes_name)
         project_templates[type(self.user_scene).__name__] = self.user_scene.template
-        template.write_local_json(filename, project_templates)
+        print(project_templates)
+        template.write_local_json(scenes_name, project_templates)
 
 class Select(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        self.next_scene = ''
+        self.create_draw_group((32, 32, 34))
+        self.project_path = ''
 
-    def select_scene(self):
-        self.change_scene(Editor, self.next_scene)
+        interface.Button(NodeProperties(self, 20, 20, 160, 25), self.draw_group, 'Select',
+                         self.select_project_path, color=(255, 255, 255))
+        interface.Button(NodeProperties(self, 20, 60, 160, 25), self.draw_group, 'Load',
+                         self.to_editor, color=(255, 255, 255))
+
+    def select_project_path(self):
+        # Create an "Open" dialog box and set next_scene to the path
+        from tkinter.filedialog import askdirectory
+        from tkinter import Tk
+        Tk().withdraw()  # do not show a root window
+
+        try:
+            self.project_path = askdirectory()
+            # Allow pygame to process internal events to avoid "not responding".
+            pygame.event.pump()
+
+            # Open the configuration file to check it is readable.
+            with open(self.project_path + '/project_config.json', 'r', encoding='utf-8') as f:
+                file_preview = f.read(32)
+            print('Read project config:\n' + file_preview.replace('\n', '¬') + '...')
+        except OSError as _error:
+            print(f'Critical error opening file:\n    {_error}')
+            self.project_path = ''
+
+    def to_editor(self):
+        user_scenes = self.set_project(self.project_path)
+        self.change_scene(Editor, user_scenes, self.project_path)
 
     def update(self):
         super().update()
+
+    @staticmethod
+    def set_project(project_path: str):
+        print(project_path)
+        sys.path.insert(1, project_path)
+        scenes_name = template.read_local_json('project_config')['scenes_file']
+        return import_module(scenes_name)

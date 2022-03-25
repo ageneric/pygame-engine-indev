@@ -1,4 +1,5 @@
 import pygame
+from pathlib import Path
 from .template import load_nodes_wrapper, read_local_json
 
 class Scene:
@@ -107,8 +108,12 @@ class Scene:
 
     # Generic user scene initialisation
     def load_template(self):
-        filename = read_local_json('config.engine')['scenes_file'] + '.json'
-        template = read_local_json(filename)[type(self).__name__]
+        scenes_name = read_local_json('project_config')['scenes_file']
+        project_templates = read_local_json(scenes_name)
+
+        template = project_templates.get(type(self).__name__, {})
+        if not template:
+            print(f'Engine warning: Scene data not found for {self}.')
 
         groups = template.get('groups', [])
         if len(groups) > 0:

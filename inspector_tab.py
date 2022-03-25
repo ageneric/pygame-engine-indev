@@ -19,7 +19,7 @@ class LiteralEntry(TextEntry):
         self.bound = bound
 
     def parse(self):
-        if len(self.text) > 5120:
+        if len(self.text) > 8192:
             return None
         try:
             literal = ast.literal_eval(self.text)
@@ -49,7 +49,7 @@ class LiteralEntry(TextEntry):
 class InspectorLabel(SpriteNode):
     _layer = 1
 
-    def __init__(self, node_props: NodeProperties, group):
+    def __init__(self, node_props, group):
         super().__init__(node_props, group)
 
     def draw(self):
@@ -71,7 +71,7 @@ transform_types = ((('x', 'y'), (float, int)), (('width', 'height'), (int,)),
 class InspectorTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, ui_style, **kwargs):
+    def __init__(self, node_props, group, ui_style, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 

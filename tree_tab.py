@@ -174,7 +174,7 @@ class TreeTabGrid(interface.GridList):
 class TreeTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, tree, icon_sheet,
+    def __init__(self, node_props, group, tree, icon_sheet,
                  ui_style, **kwargs):
         super().__init__(node_props, group)
         self.style = interface.Style.from_kwargs(kwargs)
@@ -198,7 +198,7 @@ class TreeTab(SpriteNode):
             group, 'Nodes v', style=ui_style, callback=self.toggle_grid, checked=self.grid.enabled)
         self.pick_class = DropdownEntry(
             NodeProperties(self, 5, self.transform.height - 90, self.transform.width - 115, 17),
-            group, options=class_options, style=ui_style)
+            group, default_text=class_options[0], options=class_options, style=ui_style)
         self.button_add = interface.Button(
             NodeProperties(self, self.transform.width - 105, self.transform.height - 90, 100, 20),
             group, 'Add +', style=ui_style, callback=self.action_add_node)
@@ -256,4 +256,4 @@ class TreeTab(SpriteNode):
 
     def action_delete_node(self):
         if self.parent.selected_node is not None:
-            self.parent.selected_node.remove()
+            self.parent.remove_selected_node()

@@ -1,43 +1,47 @@
-"""Read a project in the following format
-
-project/
-  _config.txt *
-  scenes.py
-  class1.py
-  class2.py
-
-* _config.txt
-class_1.py/class_2.py
-"""
-
 from pathlib import Path
+import sys
+import importlib
 
-template = """import pygame
+scene_template_code = """import pygame
 from engine.base_scene import Scene
-from engine.base_scene_decorator import init_scene_nodes
-
-# ======= Generated code =======
-# Generated automatically. Please do not change!
-
-def _scene_nodes_{1}(scene):
-    {0}
-
-# ======= Class code ========
 
 class {1}(Scene):
-    @init_scene_nodes(_scene_nodes_{1})
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
-        
-    def draw(self):
-        pass
-        
+        self.load_template()
+    
+    # Called every frame. Optional.
     def update(self):
-        pass
+        super().update()
+    
+    # Called every frame. Optional.
+    def draw(self):
+        super().draw()
 """
 
-CONFIG_PATH = '_config.txt'
+node_subclass_code = """import pygame
+from engine.base_node import Node, SpriteNode, NodeProperties
 
+# Useful properties: self.parent, self.transform, self.enabled, self.rect, self.nodes
+# Useful methods: self.scene(), self.remove()
+# For SpriteNode use: self.image, self.visible; all pygame.sprite.DirtySprite methods
+
+class {1}({2}):
+    def __init__(self, node_props{3}):
+        super().__init__(node_props{3})
+    
+    # Called every frame on every node in tree order. Optional.
+    def update(self):
+        super().update()
+    
+    # Called every frame on every node in tree order. Optional.
+    def draw(self):
+        super().draw()
+"""
+
+CONFIG_PATH = '__unused__'
+
+"""
 def fill_template(class_name, node_data):
     function_lines = []
 
@@ -45,7 +49,7 @@ def fill_template(class_name, node_data):
         function_lines.append(serial_node)
 
     template.format(class_name, "\n\t".join(function_lines))
-
+"""
 
 def write_file(file_path, content):
     with open(file_path, "w") as file_script:
@@ -71,9 +75,6 @@ def open_project_directory(file_path: Path):
         return None
     except IOError:
         return None
-
-import sys
-import importlib
 
 class AddPath:
     def __init__(self, path):

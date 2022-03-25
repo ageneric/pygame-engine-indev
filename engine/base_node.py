@@ -1,6 +1,9 @@
 import pygame
 from collections import namedtuple
 
+NODE_VALUE_WARNING = ('\nThis may be because the "parent" in NodeProperties was missed.'
+                      + '\nCheck that the first element is a Node, Scene, or related type.')
+
 NodeProperties = namedtuple('NodeProperties', ['parent',
                             'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled'],
                             defaults=[0, 0, 0, 0, 0.0, 0.0, True])
@@ -73,7 +76,7 @@ class Transform:
         self.height = width_height[1]
 
     def get_positive_size(self) -> (int, int):
-        return max(0, self.width), max(0, self.height)
+        return max(0, min(8192, self.width)), max(0, min(8192, self.height))
 
     @property
     def anchor(self) -> (float, float):
@@ -112,11 +115,11 @@ class Node:
         self.parent = node_props[0]
         # Check that the supplied node has the necessary attributes to be the parent
         if not hasattr(self.parent, 'nodes'):
-            raise ValueError('Missing nodes attribute on parent, NodeProperties[0]'
-                          + f'(got {self.parent})\nUsually a Node, Scene, or related type')
+            raise ValueError(f'No nodes attribute found on given parent (got {self.parent})'
+                             + NODE_VALUE_WARNING + f' ({self})')
         elif not (hasattr(self.parent, 'rect') or hasattr(self.parent, 'is_origin')):
-            raise ValueError('Missing rect or is_origin on parent, NodeProperties[0]'
-                          + f'(got {self.parent})\nUsually a node, Scene, or related type')
+            raise ValueError(f'No rect or is_origin attribute found on given parent (got {self.parent})'
+                             + NODE_VALUE_WARNING + f' ({self})')
         self.parent.nodes.append(self)
         self.transform = Transform(*node_props[1:7], node=self)
         self._enabled = node_props[7]
@@ -145,7 +148,7 @@ class Node:
                     child.draw()
 
     def world_rect(self) -> pygame.Rect:
-        """Calculate the on-screen rectangle of a Node. Cached as Node.rect."""
+        """Calculate the on-screen rectangle of a node. Cached as Node.rect."""
         rect = self.transform.rect()
         parent = self.parent
         while not hasattr(parent, 'is_origin'):
@@ -203,6 +206,7 @@ class Node:
                 child._set_rect_position(x + child.transform.x, y + child.transform.y)
 
     def remove(self):
+        """Fully delete a node and remove it from the tree."""
         if self in self.parent.nodes:
             self.parent.nodes.remove(self)
         self.transform.node = None
@@ -221,22 +225,29 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)
+        # Show or hide the SpriteNode based on its parent nodes in the tree
+        # If any parent node is disabled then its child nodes are not visible
         self._visible = self.world_visible()
+        surface_size = self.transform.get_positive_size()
 
         if image is None:
+            # Use the per-pixel alpha flag if given no/a transparent colour
             flags = pygame.SRCALPHA * (fill_color is None or len(fill_color) > 3)
-            self.image = pygame.Surface(self.transform.get_positive_size(), flags)
+            self.image = pygame.Surface(surface_size, flags)
             if fill_color is not None:
                 self.image.fill(fill_color)
+                self.fill_color = fill_color
         else:
-            self.image = pygame.Surface(self.transform.get_positive_size(),
-                                        image.get_flags(), image)
+            # Copy the given image and its flags including per-pixel alpha
+            self.image = pygame.Surface(surface_size, image.get_flags(), image)
 
     def remove(self):
         pygame.sprite.Sprite.kill(self)
         Node.remove(self)
 
     def world_visible(self) -> bool:
+        """Determine if the node should be visible, if all its parent nodes are
+        enabled, or otherwise not visible. Cached as SpriteNode.visible."""
         visible = self._enabled
         parent = self.parent
         while visible and isinstance(parent, Node):
@@ -261,5 +272,8 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         Node.on_resize(self)
         self.image = pygame.Surface(self.transform.get_positive_size(),
                                     self.image.get_flags(), self.image)
+        # Repaint the fill colour
+        if getattr(self, 'fill_color', None) is not None:
+            self.image.fill(self.fill_color)
         if self.dirty < 2:
             self.dirty = 1

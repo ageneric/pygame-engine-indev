@@ -139,13 +139,13 @@ class Button(SpriteNode):
 
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
-        # Only react to a click on mouse-up (helps avoid an accidental click).
+        # React to clicks (only on mouse-up events to ignore accidental clicks)
         if last_state == State.selected and event.type == MOUSEBUTTONUP:
             if self.callback and mouse_over:
                 self.on_click()
             self.state = State.idle
-
-        if self.rect.collidepoint(event.pos):
+        # Update state based on mouse motion and mouse down events
+        if mouse_over:
             if event.type == MOUSEBUTTONDOWN:
                 self.state = State.selected
             elif self.state == State.idle:
@@ -230,16 +230,19 @@ class TextEntry(SpriteNode):
 
         last_state = self.state
         last_text = self.text
-
+        # Update state based on mouse motion and mouse down events
         if event.type in MOUSE_EVENTS:
             if self.rect.collidepoint(event.pos):
                 if event.type == MOUSEBUTTONDOWN:
                     self.state = State.selected
                 elif last_state == State.idle:
                     self.state = State.hovered
-            elif last_state == State.hovered or event.type == MOUSEBUTTONDOWN:
+            elif last_state == State.selected and event.type == MOUSEBUTTONUP:
+                self.on_enter()
+            elif last_state == State.hovered:
                 self.state = State.idle
 
+        # Modify text using keyboard events
         elif last_state == State.selected and event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
                 self.on_enter()

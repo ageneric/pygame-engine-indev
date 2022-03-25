@@ -47,11 +47,13 @@ def render(message: str, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=Tru
 def box(surface, message: str, position: (int, int), width=None, height=None, middle=False,
         box_color=BACKGROUND_DEFAULT, color=COLOR_DEFAULT, font=FONT_DEFAULT) -> pygame.Rect:
     """Blits a text box to the surface at the (x, y) position specified.
-    The width and height, if omitted, fit the text's size. The text sprite
-    is also cached if either omitted. Set middle = True to centre text.
+    The width and height, if omitted, fit the text's size. If either is
+    omitted, the text sprite is cached. Set middle = True to centre text.
     """
     if width is None or height is None:
+        # Pre-render the text sprite to get its rectangle size
         text_sprite = render(message, font, color, save_sprite=True)
+        # Replace 'None' values with sizes that will fit the text with padding
         if width is None:
             width = text_sprite.get_rect().width + 2*BOX_PADDING
         if height is None:
@@ -61,10 +63,10 @@ def box(surface, message: str, position: (int, int), width=None, height=None, mi
     pygame.draw.rect(surface, box_color, box_rect)
 
     if message:
-        if middle:
+        if middle:  # centre in box in both axes
             draw(surface, message, box_rect.center, color, font, justify=True)
-        else:
+        else:  # centre only vertically
             draw(surface, message, (position[0] + BOX_PADDING, box_rect.centery), color,
                  font, justify=(False, True))
 
-    return box_rect
+    return box_rect  # return box rectangle as width / height may not be known

@@ -1,9 +1,8 @@
 import pygame
 
 import engine.text as text
-from engine import text as text
 from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
-from engine.interface import Style, GridList, MOUSE_EVENTS, TextEntry, brighten_color, State, Scrollbar
+from engine.interface import Style, TextEntry, Button, GridList, MOUSE_EVENTS, brighten_color, State
 
 
 def string_color(name: str):
@@ -16,7 +15,7 @@ def string_color(name: str):
     return color
 
 class TabHeading(SpriteNode):
-    def __init__(self, node_props: NodeProperties, group, message, fit=True, **kwargs):
+    def __init__(self, node_props, group, message, fit=True, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
         self.message = message
@@ -36,7 +35,7 @@ class TabHeading(SpriteNode):
 class ProjectFileTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, **kwargs):
+    def __init__(self, node_props, group, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
@@ -49,7 +48,7 @@ class ProjectFileTab(SpriteNode):
             self.image.fill(self.style.get('background'))
 
 class SceneTab(Node):
-    def __init__(self, node_props: NodeProperties, group_, overlay_group, user_scene, style):
+    def __init__(self, node_props, group_, overlay_group, user_scene, style):
         super().__init__(node_props)
         self.user_scene = user_scene
         self.heading = TabHeading(NodeProperties(self, 0, 0, self.transform.width, style.get('tabsize'),
@@ -126,7 +125,12 @@ class ListSelector(GridList):
                                             event.pos[1] - self.rect.y))
             if 0 <= index < len(self.tiles):
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.parent.text = self.tiles[index]
+                    if self.parent.text == self.tiles[index]:
+                        # Close the grid on a double-click or repeat selection
+                        self.enabled = False
+                        self.parent.state = State.idle
+                    else:
+                        self.parent.text = self.tiles[index]
                     if self.parent.dirty < 1:
                         self.parent.dirty = 1
                 elif event.type == pygame.MOUSEMOTION:

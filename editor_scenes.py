@@ -10,7 +10,7 @@ from engine.spritesheet import TileSpriteSheet
 import engine.template as template
 from constants import *
 
-from other_tab import SceneTab, ProjectFileTab
+from other_tab import SceneTab, ProjectFileTab, HelpTab
 from tree_tab import TreeTab
 from inspector_tab import InspectorTab
 
@@ -28,6 +28,7 @@ class Editor(Scene):
 
         self.selected_node = None
         self.play = False
+        self.help_opened = False
 
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         tab_style = interface.Style(background_editor=(20, 20, 24),
@@ -37,6 +38,7 @@ class Editor(Scene):
             dict(style=tab_style, background=(30, 36, 36)))
         font_small = pygame.font.SysFont('Calibri', 15)
 
+        font_reading = pygame.font.SysFont('Calibri', 15)
         self.icon_sheet = TileSpriteSheet('Assets/EditorIcons.png')
 
         self.tree_tab = TreeTab(NodeProperties(
@@ -47,12 +49,15 @@ class Editor(Scene):
             self.screen_size_y // 2 - 60 - TAB_PADDING * 2),
             self.draw_group, ui_style, style=tab_style)
         self.scene_tab = SceneTab(NodeProperties(
-            self, scene_tab_x, 52, self.user_scene_rect.width, 0),
+            self, scene_tab_x, 48, self.user_scene_rect.width, 0),
             self.draw_group, self.user_scene.draw_group, self.user_scene, style=tab_style)
         self.project_file_tab = ProjectFileTab(NodeProperties(
             self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
             self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
-            self.draw_group, style=tab_style)
+            self.draw_group, ui_style, font_reading, style=tab_style)
+        self.help_tab = HelpTab(NodeProperties(
+            self, scene_tab_x, 48, self.user_scene_rect.width, 300, enabled=False),
+            self.draw_group, font_reading, style=tab_style)
 
         self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20),
             self.draw_group, 'Play', self.action_play, checked=self.play,
@@ -60,13 +65,13 @@ class Editor(Scene):
         button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20),
             self.draw_group, 'Reload', self.action_reload,
             background=tab_style.get('background_editor'), color=tab_style.get('color'))
-
         button_save = interface.Button(NodeProperties(self, 440, 4, 40, 20),
-                                       self.draw_group, 'Save', self.save_scene_changes,
-                                       background=tab_style.get('background_editor'), color=tab_style.get('color'))
-        self.button_clear = interface.Button(NodeProperties(
-            self, 80, self.inspector_tab.transform.y - 20, 33, 18, enabled=False),
-            self.draw_group, '<\u2014', self.action_clear, style=tab_style, font=font_small)
+            self.draw_group, 'Save', self.save_scene_changes,
+            background=tab_style.get('background_editor'), color=tab_style.get('color'))
+
+        button_show_help = interface.Button(NodeProperties(self, self.screen_size_x-70, 4, 60, 20),
+            self.draw_group, 'Help', lambda: self.action_show_help('Introduction'),
+            background=tab_style.get('background_editor'), color=tab_style.get('color'))
 
         self.recent_frames_ms = []
 
@@ -100,23 +105,25 @@ class Editor(Scene):
     def draw(self):
         rects = super().draw()
         user_rects = self.user_scene.draw()
-        user_scene_top_left = self.user_scene_rect.topleft
-        # Shift all user scene draw rectangles to align with blit destination
-        if user_rects or self.scene_tab.repaint_overlay:
-            for rect in user_rects:
-                rect.move_ip(user_scene_top_left)
-            rects.extend(user_rects)
+        if not self.help_opened:
+            user_scene_top_left = self.user_scene_rect.topleft
+            # Shift all user scene draw rectangles to align with blit destination
+            if user_rects:
+                for rect in user_rects:
+                    rect.move_ip(user_scene_top_left)
+                rects.extend(user_rects)
             # Blit the user scene, then overlays, to the screen
             self.screen.blit(self.user_surface, user_scene_top_left)
             rects.append(self.scene_tab.box.rect)
-            self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
+            if self.scene_tab.box.enabled:
+                self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
 
         # TODO: move this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
         self.recent_frames_ms.append(rawtime)
-        if len(self.recent_frames_ms) > 30:
+        if len(self.recent_frames_ms) > 12:
             self.recent_frames_ms.pop(0)
-            message = f'{sum(self.recent_frames_ms) * FPS // 30}ms / s ({rawtime}ms / frame)'
+            message = f'{sum(self.recent_frames_ms) * FPS // 12}ms / s ({rawtime}ms / frame)'
         else:
             message = f'{rawtime}ms processing / frame'
 
@@ -134,7 +141,8 @@ class Editor(Scene):
             elif event.type == pygame.VIDEOEXPOSE:
                 # Display is cleared when minimised, so redraw all elements
                 self.draw_group.repaint_rect(self.screen.get_rect())
-                self.user_scene.draw_group.repaint_rect(self.user_scene.screen.get_rect())
+                if getattr(self.user_scene, 'draw_group', None) is not None:
+                    self.user_scene.draw_group.repaint_rect(self.user_scene.screen.get_rect())
             elif event.type == pygame.KEYDOWN:
                 if self.selected_node is not None:
                     if event.key == pygame.K_RIGHT:
@@ -167,7 +175,7 @@ class Editor(Scene):
         user_scene_height = configuration['display_height']
 
         scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
-        scene_rect = pygame.Rect(scene_tab_x, 52, user_scene_width, user_scene_height)
+        scene_rect = pygame.Rect(scene_tab_x, 48, user_scene_width, user_scene_height)
         surface = pygame.Surface(scene_rect.size)
 
         user_scene_class = getattr(self.user_module, configuration['entry_scene'])
@@ -176,7 +184,6 @@ class Editor(Scene):
     def set_selected_node(self, node):
         self.selected_node = node
         self.inspector_tab.dirty = 1
-        self.button_clear.enabled = True
 
     def remove_selected_node(self):
         if not self.play:
@@ -184,6 +191,10 @@ class Editor(Scene):
             del template.nodes_to_template[self.selected_node]
         self.selected_node.remove()
         self.selected_node = None
+
+    def clear_selected_node(self):
+        self.selected_node = None
+        self.inspector_tab.dirty = 1
 
     def action_play(self, checked):
         self.play = checked
@@ -197,14 +208,8 @@ class Editor(Scene):
         self.selected_node = None
         reload(self.user_module)
         self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
-        self.tree_tab.clear(self.user_scene)
+        self.tree_tab.grid.set_tree(self.user_scene)
         print('Engine reload successful')
-
-    def action_clear(self):
-        self.selected_node = None
-        self.tree_tab.clear_selected_node()
-        self.inspector_tab.dirty = 1
-        self.button_clear.enabled = False
 
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
@@ -221,6 +226,16 @@ class Editor(Scene):
         project_templates[type(self.user_scene).__name__] = self.user_scene.template
         print(project_templates)
         template.write_local_json(scenes_name, project_templates)
+
+    def action_show_help(self, page='Introduction'):
+        print(page)
+        self.help_opened = self.help_tab.enabled = True
+        self.scene_tab.enabled = False
+        self.help_tab.open_page(page)
+
+    def action_hide_help(self):
+        self.help_opened = self.help_tab.enabled = False
+        self.scene_tab.enabled = True
 
 class Select(Scene):
     def __init__(self, screen, clock):

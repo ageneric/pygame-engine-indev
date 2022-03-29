@@ -36,7 +36,7 @@ def saturate_color(color, saturation: float):
     0: grayscale, 0-1: desaturated, 1: identical, >1: further saturated;
     negative values result in the complementary color.
     """
-    mean = sum(r_g_b for r_g_b in color) / 3
+    mean = sum(r_g_b for r_g_b in color[:3]) / 3
     return tuple(saturate_color_component(r_g_b, mean, saturation) for r_g_b in color)
 
 class State:
@@ -104,7 +104,7 @@ class Style:
         elif modifier == 'selected' and base_name != 'color':
             return brighten_color(color, 5)
         elif modifier == 'locked':
-            return brighten_color(saturate_color(color, -10), 0.25)
+            return brighten_color(saturate_color(color, 0.25), -10)
         return color
 
 class Button(SpriteNode):
@@ -140,13 +140,13 @@ class Button(SpriteNode):
         last_state = self.state
         mouse_over = self.rect.collidepoint(event.pos)
         # React to clicks (only on mouse-up events to ignore accidental clicks)
-        if last_state == State.selected and event.type == MOUSEBUTTONUP:
+        if last_state == State.selected and event.type == MOUSEBUTTONUP and event.button == 1:
             if self.callback and mouse_over:
                 self.on_click()
             self.state = State.idle
         # Update state based on mouse motion and mouse down events
         if mouse_over:
-            if event.type == MOUSEBUTTONDOWN:
+            if event.type == MOUSEBUTTONDOWN and event.button == 1:
                 self.state = State.selected
             elif self.state == State.idle:
                 self.state = State.hovered
@@ -178,7 +178,7 @@ class Button(SpriteNode):
 
 class Toggle(Button):
     """Inherits from Button. The boolean Toggle.checked holds if the toggle is
-    checked, and on clicked, it is flipped and passed to the callback.
+    checked and when clicked, it is flipped and passed to the callback.
     Takes also 'checked' and 'unchecked' modifiers of the colour, background
     and image styles, for example color_checked_hovered=(80, 0, 0)."""
     def __init__(self, node_props, groups, message='', callback=None, checked=False, **kwargs):
@@ -190,7 +190,7 @@ class Toggle(Button):
         self.callback(self.checked)
 
     def switch_style(self, base_name):
-        checked_string = "_checked" if self.checked else "_unchecked"
+        checked_string = '_checked' if self.checked else '_unchecked'
         return self.style.get_by_state(base_name + checked_string, self.state)
 
 class TextEntry(SpriteNode):
@@ -216,6 +216,7 @@ class TextEntry(SpriteNode):
         self.cursor_text = cursor
 
     def on_enter(self):
+        """Called when editing is completed. Must reset state to State.idle."""
         if self.enter_callback is not None:
             self.enter_callback(self.text)
         self.state = State.idle
@@ -233,11 +234,11 @@ class TextEntry(SpriteNode):
         # Update state based on mouse motion and mouse down events
         if event.type in MOUSE_EVENTS:
             if self.rect.collidepoint(event.pos):
-                if event.type == MOUSEBUTTONDOWN:
+                if event.type == MOUSEBUTTONDOWN and event.button == 1:
                     self.state = State.selected
                 elif last_state == State.idle:
                     self.state = State.hovered
-            elif last_state == State.selected and event.type == MOUSEBUTTONUP:
+            elif last_state == State.selected and event.type == MOUSEBUTTONUP and event.button == 1:
                 self.on_enter()
             elif last_state == State.hovered:
                 self.state = State.idle
@@ -246,10 +247,11 @@ class TextEntry(SpriteNode):
         elif last_state == State.selected and event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_TAB):
                 self.on_enter()
-            elif event.key == pygame.K_BACKSPACE:
-                if event.mod & pygame.KMOD_CTRL:
+            elif event.mod & pygame.KMOD_CTRL:
+                if event.key == pygame.K_BACKSPACE:
                     self.text = ''
-                elif self.text != '':
+            elif event.key == pygame.K_BACKSPACE:
+                if self.text != '':
                     self.text = self.text[:-1]
             else:
                 if pygame.version.vernum[0] >= 2:
@@ -334,35 +336,52 @@ class GridList(SpriteNode):
             else:
                 self.image.fill(BACKGROUND_TRANSPARENT)
 
-            indexes = self.indexes_in_viewport()
+            indexes = self.indexes_in_view()
             if self.use_draw_method:
                 for i in indexes:
                     self.tiles[i].draw()
-            else:
-                for i, position in zip(indexes, self.tile_positions(indexes.start)):
-                    if hasattr(self.tiles[i], 'image'):
-                        self.image.blit(self.tiles[i].image, position)
+            # Blit each of the tiles' images to the grid in place
+            for i, position in zip(indexes, self.tile_positions(indexes.start)):
+                if hasattr(self.tiles[i], 'image'):
+                    self.image.blit(self.tiles[i].image, position)
 
-    def indexes_in_viewport(self):
+    def indexes_in_view(self):
         start = self.scroll_pixels // self.spacing
-        end = (self.scroll_pixels + self.transform.height) // self.spacing + 1
-        return range(start, min(len(self.tiles), end))
+        end = (self.scroll_pixels + self.transform.height) // self.spacing
+        # Adds 1 to end to include the partially visible next tile
+        return range(start, min(len(self.tiles), end + 1))
 
     def tile_rects(self, start_index=0):
+        """Yields the local Rects for tiles starting from the start index.
+        This generator loops infinitely, so it must be used either
+        with a break condition in a loop, or with parallel iteration:
+          for tile, rect in zip(self.tiles, self.tile_rects(indexes.start)) ...
+        """
+        # Find the Rect of the tile at the start index
         tile_rect = self.index_to_rect(start_index)
         move_x, move_y = self.forward_to_position(self.spacing)
+        # Loop infinitely yielding the next Rect on each iteration
         while True:
             yield tile_rect
-            tile_rect.move_ip(move_x, move_y)
+            tile_rect.move_ip(move_x, move_y)  # translate by one tile's spacing
 
     def tile_positions(self, start_index=0):
+        """Yields the positions for tiles starting from the start index.
+        This generator loops infinitely, so it must be used either
+        with a break condition in a loop, or with parallel iteration:
+          for tile, position in zip(self.tiles, self.tile_positions(indexes.start)) ...
+        """
+        # Find the position of the tile at the start index
         position = list(self.index_to_position(start_index))
         index_x_or_y = not self.horizontal
+        # Loop infinitely yielding the next position on each iteration
         while True:
             yield position
-            position[index_x_or_y] += self.spacing
+            position[index_x_or_y] += self.spacing  # translate by one tile's spacing
 
     def forward_to_position(self, forward_pixels=0) -> tuple:
+        """A forward is the number of pixels along a list
+        in the direction that it is orientated. Returns position."""
         if self.horizontal:
             return forward_pixels, 0
         else:
@@ -372,6 +391,8 @@ class GridList(SpriteNode):
         return self.forward_to_position(index * self.spacing - self.scroll_pixels)
 
     def forward_to_rect(self, forward_pixels=0):
+        """A forward is the number of pixels along a list
+        in the direction that it is orientated. Returns a Rect."""
         if self.horizontal:
             return pygame.Rect(forward_pixels, 0, self.spacing, self.transform.height)
         else:
@@ -381,13 +402,16 @@ class GridList(SpriteNode):
         return self.forward_to_rect(index * self.spacing - self.scroll_pixels)
 
     def forward_to_index(self, forward: float) -> int:
+        """A forward is the number of pixels along a list
+        in the direction that it is orientated. Returns an integer index."""
         return int((forward + self.scroll_pixels) // self.spacing)  # // can return float
 
     def position_to_index(self, position_x_y: (float, float)) -> int:
         return (position_x_y[not self.horizontal] + self.scroll_pixels) // self.spacing
 
     def remove_tile_at_index(self, index):
-        self.dirty = 1
+        if self.dirty < 2:
+            self.dirty = 1
         return self.tiles.pop(index)
 
     @property

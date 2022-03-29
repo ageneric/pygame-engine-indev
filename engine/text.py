@@ -12,7 +12,7 @@ _sprite_cache = {}
 
 def draw(surface, message: str, position: (int, int), color=COLOR_DEFAULT, font=FONT_DEFAULT,
          text_sprite=None, static=False, justify: Union[bool, tuple, list] = False) -> pygame.Rect:
-    """Draws text to the surface at the (x, y) position specified.
+    """Draws (blit) text to the surface at the (x, y) position specified.
     Justify - set to True/False to centre in both/neither axes,
         or pick separately for the (x, y) axes, i.e. set to
         (True, False) to centre horizontally and not vertically.
@@ -46,7 +46,7 @@ def render(message: str, font=FONT_DEFAULT, color=COLOR_DEFAULT, save_sprite=Tru
 
 def box(surface, message: str, position: (int, int), width=None, height=None, middle=False,
         box_color=BACKGROUND_DEFAULT, color=COLOR_DEFAULT, font=FONT_DEFAULT) -> pygame.Rect:
-    """Blits a text box to the surface at the (x, y) position specified.
+    """Draws (blit) a text box to the surface at the (x, y) position specified.
     The width and height, if omitted, fit the text's size. If either is
     omitted, the text sprite is cached. Set middle = True to centre text.
     """

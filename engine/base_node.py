@@ -79,11 +79,11 @@ class Transform:
         return max(0, min(8192, self.width)), max(0, min(8192, self.height))
 
     @property
-    def anchor(self) -> (float, float):
+    def anchor_position(self) -> (float, float):
         return self._anchor_x, self._anchor_y
 
-    @anchor.setter
-    def anchor(self, anchor_x_y: (float, float)):
+    @anchor_position.setter
+    def anchor_position(self, anchor_x_y: (float, float)):
         self._anchor_x, self._anchor_y = anchor_x_y
 
     @property
@@ -182,7 +182,7 @@ class Node:
 
         # Move the top-left of the rectangle if position changes or
         # the rectangle is resized about a point that is not the top-left
-        if name in ('x', 'y') or not self.transform.anchor == (0, 0):
+        if name in ('x', 'y') or not self.transform.anchor_position == (0, 0):
             x, y = self.transform.x, self.transform.y
             if not hasattr(self.parent, 'is_origin'):
                 x += self.parent.rect.x
@@ -218,10 +218,11 @@ class Node:
 class SpriteNode(Node, pygame.sprite.DirtySprite):
     def __init__(self, node_props: NodeProperties, groups=None, image=None, fill_color=None):
         try:
+            if isinstance(groups, str): raise TypeError
             pygame.sprite.DirtySprite.__init__(self, groups)
         except TypeError:  # for example when groups = None (default)
-            print('Engine warning: a SpriteNode was initialised without a group or with an incorrect type.'
-                  + f'\nThis may be because the "group" parameter was missed. ({self})')
+            print(f'Engine warning: a SpriteNode was initialised with an incorrect group type (got {groups}).'
+                  + '\nThis may be because the "group" parameter was missed.')
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)
@@ -251,7 +252,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         visible = self._enabled
         parent = self.parent
         while visible and isinstance(parent, Node):
-            visible = getattr(parent, 'visible', True) and visible
+            visible = getattr(parent, 'visible', True) and parent.enabled
             parent = parent.parent
         return visible
 

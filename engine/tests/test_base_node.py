@@ -34,7 +34,7 @@ def test_transform():
         )
         for converted_property, original_property in comparisons:
             assert abs(converted_property - original_property) < 1
-        assert rect_transform.anchor == transform.anchor
+        assert rect_transform.anchor_position == transform.anchor_position
     print('Test: A transform may be modified by assigning to a property.')
     for transform in test_transforms:
         random_change_in_x = random.uniform(-999, 999)

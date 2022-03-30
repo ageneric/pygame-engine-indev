@@ -1,23 +1,5 @@
 """Store and load a tree of node instances."""
 
-"""
-scene_template:
-  screen:
-    display_width = 400
-    display_height = 300
-  groups:
-    - 'draw_group'
-    - 'collision_group'
-  group_modes:
-    - (0, 0, 0)
-  nodes:
-    - class = SpriteNode
-      data_node:
-      data_groups = 0 or :
-      args:
-      nodes:
-"""
-
 import json
 import sys
 import inspect
@@ -75,21 +57,24 @@ def load_nodes(scene, template: dict, parent):
 def instantiate(scene, template: dict, parent):
     inst_class = resolve_class(scene, template['class'])
     node_props = NodeProperties(parent, *template['data_node'])
-    # Get '*args' and '**kwargs' arguments, replace None with empty
+    # Get '*args' and '**kwargs' arguments; replace None with empty
     arguments = template.get('args', None)
     arguments = {} if arguments is None else arguments
     keyword_arguments = template.get('kwargs', None)
     keyword_arguments = {} if keyword_arguments is None else keyword_arguments
-
+    # Get groups argument if used
     groups = template.get('data_groups', None)
-    if groups is None:
-        new_node = inst_class(node_props, *arguments, **keyword_arguments)
-    else:
-        if isinstance(groups, int):
+    if groups is not None:
+        # Groups are stored as their index in the scene groups
+        if isinstance(groups, int):  # single group
             groups = scene.groups[groups]
         elif hasattr(groups, '__len__'):  # includes list, tuple
             groups = [scene.groups[group] for group in groups]
-        new_node = inst_class(node_props, groups, *arguments, **keyword_arguments)
+        arguments.insert(0, groups)
+
+    new_node = inst_class(node_props, *arguments, **keyword_arguments)
+    if template.get('layer', None) is not None:
+        new_node.groups()[0].change_layer(new_node, template['layer'])
     nodes_to_template[new_node] = template
     return new_node
 
@@ -102,7 +87,9 @@ def resolve_class(scene, name):
     else:
         return scene.user_classes[name]
 
-def register_node(scene, template: dict, new_node):
+def register_node(scene, parent_template: dict, new_node):
+    """Create a template for the new node and add it to the
+    parent template's list of child node templates."""
     transform = new_node.transform
     new_template = {
         'class': type(new_node).__name__,
@@ -110,31 +97,40 @@ def register_node(scene, template: dict, new_node):
                       transform.anchor_x, transform.anchor_y, new_node.enabled),
         'nodes': []
     }
-    signature = inspect.signature(new_node.__class__)
+    # Get ordered list of the constructor parameters without self
+    parameters = inspect.signature(new_node.__class__).parameters
+    # Store groups as their index in the scene groups
     groups_method = getattr(new_node, 'groups', None)
-    if signature.parameters.get('groups') is not None and callable(groups_method):
-        new_template['data_groups'] = []
-        for group in new_node.groups():
-            new_template['data_groups'].append(scene.groups.index(group))
-
-    for attribute in signature.parameters:
+    if parameters.get('groups') is not None and callable(groups_method):
+        new_template['data_groups'] = list(group_indexes(scene, new_node))
+    # Store all other parameters that match a current attribute
+    for attribute in parameters:
         if attribute not in ('node_props', 'groups', 'args', 'kwargs'):
             new_template[attribute] = getattr(new_node, attribute, None)
 
+    if not parent_template.get('nodes'):
+        parent_template['nodes'] = []
+    parent_template['nodes'].append(new_template)
     nodes_to_template[new_node] = new_template
-    if not template.get('nodes'):
-        template['nodes'] = [new_template]
-    else:
-        template['nodes'].append(new_template)
 
-def update_node(node, attribute: str):
-    print(node, attribute)
+def group_indexes(scene, node):
+    for group in node.groups():
+        if group in scene.groups:
+            yield scene.groups.index(group)
+
+def update_node(node, attribute: str, scene=None):
+    """Update the given node's template. Pass the scene if updating groups."""
     template = nodes_to_template.get(node, None)
     if template is None:
+        print(f'Engine warning: no template found for node {node}.')
         return
 
     arguments = template.get('args', {})
-    if attribute in arguments:
+    if attribute == 'groups':
+        arguments['data_groups'] = list(group_indexes(scene, node))
+    elif attribute == 'layer':
+        arguments['layer'] = getattr(node, '_layer', None)
+    elif attribute in arguments:
         arguments[attribute] = getattr(node, attribute, None)
         template['args'] = arguments
     elif attribute == DATA_NODE[-1]:
@@ -143,5 +139,3 @@ def update_node(node, attribute: str):
         data_node_value = list(template['data_node'])
         data_node_value[DATA_NODE.index(attribute)] = getattr(node.transform, attribute)
         template['data_node'] = data_node_value
-
-    print(template)

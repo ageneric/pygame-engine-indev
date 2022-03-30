@@ -5,11 +5,6 @@ from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
 from engine.interface import Style, TextEntry, Button, GridList, \
     MOUSE_EVENTS, brighten_color, State, Scrollbar
 
-import sys
-import subprocess
-from pathlib import Path
-from os import getenv, name as os_name
-
 def string_color(name: str):
     """Generates an arbitrary bright colour from the first six characters."""
     key = map(ord, name.ljust(6, ' '))
@@ -36,48 +31,6 @@ class TabHeading(SpriteNode):
             if self.resize_to_fit and self.transform.size != rect.size:
                 self.transform.size = rect.size  # resize to fit the text box
                 self.draw()  # redraw at the new size (one recursion only)
-
-class ProjectFileTab(SpriteNode):
-    _layer = 0
-
-    def __init__(self, node_props, group, ui_style, font_reading, **kwargs):
-        super().__init__(node_props, group)
-        self.style = Style.from_kwargs(kwargs)
-        self.font_reading = font_reading
-
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-                   group, 'Project Files', style=self.style)
-        self.class_menu = Node(NodeProperties(self, 0, 75, enabled=False))
-
-        button_explorer = Button(NodeProperties(self, 5, 5, 120, 20), group,
-                                 'Show in Explorer', self.open_nt_explorer, style=ui_style)
-        if os_name != 'nt':
-            button_explorer.state = State.locked
-        Button(NodeProperties(self, 5, 30, 120, 20), group,
-               'Define Class', self.show_class_menu, style=ui_style)
-
-    def draw(self):
-        super().draw()
-        if self._visible and self.dirty > 0:
-            self.image.fill(self.style.get('background'))
-
-            if self.class_menu.enabled:
-                text.draw(self.image, 'Please select a base class.',
-                          (5, 55), self.style.get('color'), self.font_reading)
-
-    def open_nt_explorer(self):
-        try:
-            path = Path(sys.path[1])
-            if path.is_dir():
-                explorer_path = Path(getenv('WINDIR')) / 'explorer.exe'
-                # Convert directory path to backslashes and run explorer
-                subprocess.run([explorer_path, '\\'.join(path.parts)])
-        except OSError:
-            print('Editor warning: could not open project file directory')
-
-    def show_class_menu(self):
-        self.class_menu.enabled = not self.class_menu.enabled
-        self.dirty = 1
 
 class HelpTab(SpriteNode):
     _layer = 0
@@ -126,9 +79,9 @@ class HelpTab(SpriteNode):
                 current_y += 8
                 continue
             # Apply the font and style of the tag at line start
-            elif line.startswith('^`') and line.endswith('`'):
+            elif line.startswith('`') and line.endswith('`'):
                 current_y = self.scroll_wrap(line[2:-1], current_y, color, self.font_monospace)
-            elif line.startswith('^(') and line.endswith(')'):
+            elif line.startswith('(') and line.endswith(')'):
                 current_y = self.scroll_wrap(line[1:], current_y, font=self.font_small)
             else:
                 current_y = self.scroll_wrap(line, current_y, color, self.font_reading)

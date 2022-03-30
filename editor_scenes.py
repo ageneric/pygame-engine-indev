@@ -5,12 +5,13 @@ from importlib import import_module, reload
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
-from engine.base_node import NodeProperties
+from engine.base_node import NodeProperties, SpriteNode
 from engine.spritesheet import TileSpriteSheet
 import engine.template as template
 from constants import *
 
-from other_tab import SceneTab, ProjectFileTab, HelpTab
+from other_tab import SceneTab, HelpTab
+from project_file_tab import ProjectFileTab
 from tree_tab import TreeTab
 from inspector_tab import InspectorTab
 
@@ -68,9 +69,9 @@ class Editor(Scene):
         button_save = interface.Button(NodeProperties(self, 440, 4, 40, 20),
             self.draw_group, 'Save', self.save_scene_changes,
             background=tab_style.get('background_editor'), color=tab_style.get('color'))
-
-        button_show_help = interface.Button(NodeProperties(self, self.screen_size_x-70, 4, 60, 20),
-            self.draw_group, 'Help', lambda: self.action_show_help('Introduction'),
+        self.button_show_help = interface.Button(NodeProperties(
+            self, self.screen_size_x - 5, 4, 60, 20, anchor_x=1), self.draw_group,
+            'Help', lambda: self.action_show_help('Introduction'),
             background=tab_style.get('background_editor'), color=tab_style.get('color'))
 
         self.recent_frames_ms = []
@@ -80,8 +81,11 @@ class Editor(Scene):
         if hasattr(self.user_scene, 'background_surf'):
             self.user_scene.resize_draw_group()
 
-        scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
-        self.user_scene_rect.left = scene_tab_x
+        user_scene_width = self.user_scene_rect.width
+        scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
+        self.user_scene_rect.x = scene_tab_x
+
+        # Update sizes
         if scene_tab_x - TAB_PADDING*2 < 16:
             self.tree_tab.enabled = self.inspector_tab.enabled = False
         else:
@@ -91,10 +95,12 @@ class Editor(Scene):
             self.inspector_tab.transform.size = (
                 scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 60 - TAB_PADDING * 2)
             self.project_file_tab.transform.size = (
-                self.user_scene_rect.width, self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72)
-            self.inspector_tab.transform.y = 68 + self.screen_size_y // 2
-        self.scene_tab.transform.x = scene_tab_x
-        self.project_file_tab.transform.x = scene_tab_x
+                user_scene_width, self.screen_size_y - self.user_scene_rect.height - TAB_PADDING * 2 - 72)
+        # Update positions
+        self.inspector_tab.transform.y = 68 + self.screen_size_y // 2
+        for right_tab in self.scene_tab, self.project_file_tab, self.help_tab:
+            right_tab.transform.x = scene_tab_x
+        self.button_show_help.transform.x = self.screen_size_x - 5
         self.scene_tab.transform.width = self.user_scene_rect.width
 
     def update(self):
@@ -186,7 +192,7 @@ class Editor(Scene):
         self.inspector_tab.dirty = 1
 
     def remove_selected_node(self):
-        if not self.play:
+        if not self.play and getattr(self.user_scene, 'template', False):
             template.nodes_to_template[self.selected_node.parent]['nodes'].remove(template.nodes_to_template[self.selected_node])
             del template.nodes_to_template[self.selected_node]
         self.selected_node.remove()
@@ -213,22 +219,29 @@ class Editor(Scene):
 
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
-        if issubclass(inst_class, pygame.sprite.Sprite):
+        if issubclass(inst_class, SpriteNode):
             new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
         else:
             new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
-        if not self.play:
+        if not self.play and getattr(self.user_scene, 'template', False):
             template.register_node(self.user_scene, template.nodes_to_template[parent], new_node)
 
     def save_scene_changes(self):
-        scenes_name = template.read_local_json('project_config')['scenes_file']
-        project_templates = template.read_local_json(scenes_name)
-        project_templates[type(self.user_scene).__name__] = self.user_scene.template
-        print(project_templates)
-        template.write_local_json(scenes_name, project_templates)
+        if getattr(self.user_scene, 'template', False):
+            scenes_name = template.read_local_json('project_config')['scenes_file']
+            project_templates = template.read_local_json(scenes_name)
+            project_templates[type(self.user_scene).__name__] = self.user_scene.template
+            print('Saving template data:\n' + str(project_templates)[:32] + '...')
+            template.write_local_json(scenes_name, project_templates)
+
+    def add_scene_module(self, module_name: str):
+        if getattr(self.user_scene, 'template', False):
+            modules = self.user_scene.template.get('modules', [])
+            modules.append(module_name)
+            self.user_scene.template.modules = modules
+            self.action_reload()
 
     def action_show_help(self, page='Introduction'):
-        print(page)
         self.help_opened = self.help_tab.enabled = True
         self.scene_tab.enabled = False
         self.help_tab.open_page(page)

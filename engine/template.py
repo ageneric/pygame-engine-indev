@@ -59,7 +59,7 @@ def instantiate(scene, template: dict, parent):
     node_props = NodeProperties(parent, *template['data_node'])
     # Get '*args' and '**kwargs' arguments; replace None with empty
     arguments = template.get('args', None)
-    arguments = {} if arguments is None else arguments
+    arguments = [] if arguments is None else arguments
     keyword_arguments = template.get('kwargs', None)
     keyword_arguments = {} if keyword_arguments is None else keyword_arguments
     # Get groups argument if used
@@ -133,9 +133,9 @@ def update_node(node, attribute: str, scene=None):
     elif attribute in arguments:
         arguments[attribute] = getattr(node, attribute, None)
         template['args'] = arguments
-    elif attribute == DATA_NODE[-1]:
-        template['data_node'][-1] = getattr(node, attribute, None)
-    elif attribute in DATA_NODE and hasattr(node, 'transform'):
-        data_node_value = list(template['data_node'])
-        data_node_value[DATA_NODE.index(attribute)] = getattr(node.transform, attribute)
-        template['data_node'] = data_node_value
+    elif attribute in DATA_NODE:
+        data_node = list(template['data_node'])
+        if DATA_NODE.index(attribute) < 6 and hasattr(node, 'transform'):
+            node = getattr(node, 'transform', {})
+        data_node[DATA_NODE.index(attribute)] = getattr(node, attribute, None)
+        template['data_node'] = data_node

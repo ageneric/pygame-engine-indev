@@ -55,8 +55,9 @@ class ProjectFileTab(SpriteNode):
             path = Path(sys.path[1])
             if path.is_dir():
                 explorer_path = Path(getenv('WINDIR')) / 'explorer.exe'
-                # Convert directory path to backslashes and run explorer
-                subprocess.run([explorer_path, '\\'.join(path.parts)])
+                # Convert directory path to backslashes starting with C:\
+                formatted_path = '\\'.join(path.parts).replace('\\\\', '\\', 1)
+                subprocess.run([explorer_path, formatted_path])
         except OSError:
             print('Editor warning: could not open project file directory')
 

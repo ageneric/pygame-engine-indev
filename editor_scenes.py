@@ -151,14 +151,8 @@ class Editor(Scene):
                     self.user_scene.draw_group.repaint_rect(self.user_scene.screen.get_rect())
             elif event.type == pygame.KEYDOWN:
                 if self.selected_node is not None:
-                    if event.key == pygame.K_RIGHT:
-                        self.selected_node.transform.x += 1
-                    if event.key == pygame.K_LEFT:
-                        self.selected_node.transform.x -= 1
-                    if event.key == pygame.K_DOWN:
-                        self.selected_node.transform.y += 1
-                    if event.key == pygame.K_UP:
-                        self.selected_node.transform.y -= 1
+                    if event.mod & pygame.KMOD_SHIFT:
+                        self.translate_selected_node(event)
                     if event.key == pygame.K_DELETE:
                         self.remove_selected_node()
 
@@ -201,6 +195,16 @@ class Editor(Scene):
     def clear_selected_node(self):
         self.selected_node = None
         self.inspector_tab.dirty = 1
+
+    def translate_selected_node(self, event):
+        if event.key == pygame.K_RIGHT:
+            self.selected_node.transform.x += 1
+        if event.key == pygame.K_LEFT:
+            self.selected_node.transform.x -= 1
+        if event.key == pygame.K_DOWN:
+            self.selected_node.transform.y += 1
+        if event.key == pygame.K_UP:
+            self.selected_node.transform.y -= 1
 
     def action_play(self, checked):
         self.play = checked

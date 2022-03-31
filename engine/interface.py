@@ -141,7 +141,7 @@ class Button(SpriteNode):
         mouse_over = self.rect.collidepoint(event.pos)
         # React to clicks (only on mouse-up events to ignore accidental clicks)
         if last_state == State.selected and event.type == MOUSEBUTTONUP and event.button == 1:
-            if self.callback and mouse_over:
+            if mouse_over:
                 self.on_click()
             self.state = State.idle
         # Update state based on mouse motion and mouse down events
@@ -157,7 +157,8 @@ class Button(SpriteNode):
             self.dirty = 1
 
     def on_click(self):
-        self.callback()
+        if callable(self.callback):
+            self.callback()
 
     def draw(self):
         super().draw()
@@ -187,7 +188,8 @@ class Toggle(Button):
 
     def on_click(self):
         self.checked = not self.checked
-        self.callback(self.checked)
+        if callable(self.callback):
+            self.callback(self.checked)
 
     def switch_style(self, base_name):
         checked_string = '_checked' if self.checked else '_unchecked'
@@ -217,12 +219,12 @@ class TextEntry(SpriteNode):
 
     def on_enter(self):
         """Called when editing is completed. Must reset state to State.idle."""
-        if self.enter_callback is not None:
+        if callable(self.enter_callback):
             self.enter_callback(self.text)
         self.state = State.idle
 
     def on_edit(self):
-        if self.edit_callback is not None:
+        if callable(self.edit_callback):
             self.edit_callback(self.text)
 
     def event(self, event):

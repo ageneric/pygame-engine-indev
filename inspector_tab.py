@@ -73,7 +73,7 @@ class InspectorTab(SpriteNode):
         TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
                    group, 'Inspector', style=self.style)
         scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
-        group.change_layer(scrollbar, 1)
+        group.change_layer(scrollbar, 2)
 
         self.scroll_pixels = 0
         self.scroll_limits = 0, 90
@@ -154,7 +154,7 @@ class InspectorTab(SpriteNode):
             indexes = list(template.group_indexes(self.parent.user_scene, self.selected_node))
             LiteralEntry(NodeProperties(
                 self.widgets, half_widget_columns[0], current_y, half_widget_width, 15),
-                self.group, str(indexes), 'groups', self.set_groups, allow_types=(list,),
+                self.group, str(indexes)[1:-1], 'groups', self.set_groups, allow_types=(list, tuple),
                 allow_characters='1234567890 [],', style=self.entry_style)
 
     def resize_node_inspector(self):
@@ -177,7 +177,7 @@ class InspectorTab(SpriteNode):
     def update_node_inspector(self):
         for widget in self.widgets.nodes:
             if isinstance(widget, LiteralEntry) and widget.state != State.selected:
-                if widget.bound in ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y'):
+                if widget.bound in template.DATA_NODE[:-1]:  # transform attributes
                     value = getattr(self.selected_node.transform, widget.bound)
                 elif widget.bound == 'groups':
                     value = list(template.group_indexes(self.parent.user_scene, self.selected_node))
@@ -217,10 +217,10 @@ class InspectorTab(SpriteNode):
     def set_groups(self, literal, _):
         self.selected_node.kill()
         for index in literal:
-            if index in self.parent.user_scene.groups:
+            if 0 <= index < len(self.parent.user_scene.groups):
                 self.selected_node.add(self.parent.user_scene.groups[index])
         if not self.parent.play:
-            template.update_node(self.selected_node, 'groups')
+            template.update_node(self.selected_node, 'groups', self.parent.user_scene)
 
     def draw(self):
         super().draw()
@@ -250,6 +250,8 @@ class InspectorTab(SpriteNode):
                               color=self.style.get('color'))
                     text.draw(self.image, repr(getattr(self.selected_node, prop)),
                               (135, 210 + i * 14 - self.scroll_pixels))
+
+                self.scroll_limits = 0, max(0, 230 + i * 14 - self.transform.height)
 
     def draw_node_inspector(self):
         self.widgets.transform.y = -self.scroll_pixels

@@ -169,7 +169,7 @@ class TreeTabGrid(interface.GridList):
         self.tree = tree
         self.linear_copy.clear()
         self.get_linear_copy(self.tree)
-
+        self.dirty = 1
 
 class TreeTab(SpriteNode):
     _layer = 0

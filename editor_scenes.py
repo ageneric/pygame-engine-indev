@@ -1,6 +1,9 @@
 import pygame
 import sys
 from importlib import import_module, reload
+from tkinter.filedialog import askdirectory
+from tkinter import Tk
+Tk().withdraw()  # do not show a root window
 
 import engine.text as text
 import engine.interface as interface
@@ -15,10 +18,16 @@ from project_file_tab import ProjectFileTab
 from tree_tab import TreeTab
 from inspector_tab import InspectorTab
 
-TAB_PADDING = 8
+TAB_PADDING = 8  # spacing between tabs in the editor
+directions = {  # movement directions caused by pressing Shift + key
+    pygame.K_RIGHT: ('x', 1), pygame.K_LEFT: ('x', -1),
+    pygame.K_DOWN: ('y', 1),  pygame.K_UP: ('y', -1)
+}
 
 class Editor(Scene):
-    """The editor that enables the user to edit a scene."""
+    """The editor that enables the user to edit a scene.
+    Takes user_module, the module to run, and user_path, the path to the module.
+    """
     def __init__(self, screen, clock, user_module, user_path):
         super().__init__(screen, clock)
         self.create_draw_group((20, 20, 24))
@@ -31,17 +40,19 @@ class Editor(Scene):
         self.play = False
         self.help_opened = False
 
+        # Define constant graphical settings and load graphics
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         tab_style = interface.Style(background_editor=(20, 20, 24),
             background=(48, 48, 50), background_indent=(60, 60, 60),
             tabsize=20, color=C_LIGHT, color_scroll=(100, 100, 100))
         ui_style = interface.Style.from_kwargs(
             dict(style=tab_style, background=(30, 36, 36)))
-        font_small = pygame.font.SysFont('Calibri', 15)
-
-        font_reading = pygame.font.SysFont('Calibri', 15)
+        menu_bar_style = interface.Style.from_kwargs(
+            dict(style=tab_style, background=tab_style.get('background_editor'), imagex=5))
+        self.font_reading = pygame.font.SysFont('Calibri', 15)
         self.icon_sheet = TileSpriteSheet('Assets/EditorIcons.png')
 
+        # Initialise the tabs
         self.tree_tab = TreeTab(NodeProperties(
             self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING),
             self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
@@ -55,32 +66,29 @@ class Editor(Scene):
         self.project_file_tab = ProjectFileTab(NodeProperties(
             self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
             self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
-            self.draw_group, ui_style, font_reading, style=tab_style)
+            self.draw_group, self.icon_sheet, ui_style, self.font_reading, style=tab_style)
         self.help_tab = HelpTab(NodeProperties(
             self, scene_tab_x, 48, self.user_scene_rect.width, 300, enabled=False),
-            self.draw_group, font_reading, style=tab_style)
+            self.draw_group, self.font_reading, style=tab_style)
 
-        self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20),
-            self.draw_group, 'Play', self.action_play, checked=self.play,
-            background_checked=C_RED, background=tab_style.get('background_editor'))
-        button_reload = interface.Button(NodeProperties(self, 330, 4, 60, 20),
-            self.draw_group, 'Reload', self.action_reload,
-            background=tab_style.get('background_editor'), color=tab_style.get('color'))
-        button_save = interface.Button(NodeProperties(self, 440, 4, 40, 20),
-            self.draw_group, 'Save', self.save_scene_changes,
-            background=tab_style.get('background_editor'), color=tab_style.get('color'))
+        # Initialise the menu bar
+        self.toggle_play = interface.Toggle(NodeProperties(self, scene_tab_x, 2, 60, 22),
+            self.draw_group, 'Play', self.action_play, checked=self.play, style=menu_bar_style,
+            background_checked=(48, 32, 108), image=self.icon_sheet.load_image(pygame.Rect(3, 1, 1, 1), 8))
+        self.button_reload = interface.Button(
+            NodeProperties(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_x=1),
+            self.draw_group, '   Reload', self.action_reload, style=menu_bar_style,
+            image=self.icon_sheet.load_image(pygame.Rect(0, 2, 1, 1), 8))
+        button_save = interface.Button(NodeProperties(self, TAB_PADDING, 2, 42, 22),
+            self.draw_group, 'Save', self.save_scene_changes, style=menu_bar_style)
         self.button_show_help = interface.Button(NodeProperties(
-            self, self.screen_size_x - 5, 4, 60, 20, anchor_x=1), self.draw_group,
-            'Help', lambda: self.action_show_help('Introduction'),
-            background=tab_style.get('background_editor'), color=tab_style.get('color'))
+            self, self.screen_size_x - TAB_PADDING, 2, 60, 22, anchor_x=1), self.draw_group,
+            'Help', lambda: self.action_show_help('Introduction'), style=menu_bar_style,
+            image=self.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8))
 
-        self.recent_frames_ms = []
+        self.recent_frames_ms = []  # used by frame speed counter
 
     def resize(self):
-        self.resize_draw_group()
-        if hasattr(self.user_scene, 'background_surf'):
-            self.user_scene.resize_draw_group()
-
         user_scene_width = self.user_scene_rect.width
         scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
         self.user_scene_rect.x = scene_tab_x
@@ -102,6 +110,8 @@ class Editor(Scene):
             right_tab.transform.x = scene_tab_x
         self.button_show_help.transform.x = self.screen_size_x - 5
         self.scene_tab.transform.width = self.user_scene_rect.width
+        self.toggle_play.transform.x = scene_tab_x
+        self.button_reload.transform.x = scene_tab_x - TAB_PADDING
 
     def update(self):
         super().update()
@@ -110,6 +120,7 @@ class Editor(Scene):
 
     def draw(self):
         rects = super().draw()
+
         user_rects = self.user_scene.draw()
         if not self.help_opened:
             user_scene_top_left = self.user_scene_rect.topleft
@@ -124,7 +135,7 @@ class Editor(Scene):
             if self.scene_tab.box.enabled:
                 self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
 
-        # TODO: move this frame counter to an appropriate tab
+        # TODO: consider moving this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
         self.recent_frames_ms.append(rawtime)
         if len(self.recent_frames_ms) > 12:
@@ -133,7 +144,7 @@ class Editor(Scene):
         else:
             message = f'{rawtime}ms processing / frame'
 
-        rect = text.draw(self.screen, message, (30, 5), color=C_LIGHT_ISH)
+        rect = text.draw(self.screen, message, (54, 5), color=C_LIGHT_ISH, font=self.font_reading)
         self.draw_group.repaint_rect(rect)
 
         return rects
@@ -183,42 +194,44 @@ class Editor(Scene):
 
     def set_selected_node(self, node):
         self.selected_node = node
-        self.inspector_tab.dirty = 1
+        self.inspector_tab.set_selected(self.selected_node, self.user_scene)
+
+    def clear_selected_node(self):
+        self.selected_node = None
+        self.inspector_tab.set_selected(self.selected_node, self.user_scene)
 
     def remove_selected_node(self):
         if not self.play and getattr(self.user_scene, 'template', False):
             template.nodes_to_template[self.selected_node.parent]['nodes'].remove(template.nodes_to_template[self.selected_node])
             del template.nodes_to_template[self.selected_node]
         self.selected_node.remove()
-        self.selected_node = None
-
-    def clear_selected_node(self):
-        self.selected_node = None
-        self.inspector_tab.dirty = 1
+        self.clear_selected_node()
 
     def translate_selected_node(self, event):
-        if event.key == pygame.K_RIGHT:
-            self.selected_node.transform.x += 1
-        if event.key == pygame.K_LEFT:
-            self.selected_node.transform.x -= 1
-        if event.key == pygame.K_DOWN:
-            self.selected_node.transform.y += 1
-        if event.key == pygame.K_UP:
-            self.selected_node.transform.y -= 1
+        if event.key in directions and hasattr(self.selected_node, 'transform'):
+            axis, delta = directions[event.key]
+            new_location = getattr(self.selected_node.transform, axis) + delta
+            setattr(self.selected_node.transform, axis, new_location)
+            if not self.play and getattr(self.user_scene, 'template', False):
+                template.update_node(self.selected_node, axis)
 
     def action_play(self, checked):
+        self.save_scene_changes()
+        self.action_reload()
         self.play = checked
+        self.tree_tab.dirty = 1
 
     def action_reload(self):
         if self.play:
             self.toggle_play.checked = False
             self.toggle_play.dirty = 1
-            self.action_play(False)  # stop playing
+            self.play = False
 
         self.selected_node = None
         reload(self.user_module)
         self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
         self.tree_tab.grid.set_tree(self.user_scene)
+        self.inspector_tab.set_selected(self.selected_node, self.user_scene)
         print('Engine reload successful')
 
     def add_node(self, class_name, parent):
@@ -241,9 +254,12 @@ class Editor(Scene):
     def add_scene_module(self, module_name: str):
         if getattr(self.user_scene, 'template', False):
             modules = self.user_scene.template.get('modules', [])
-            modules.append(module_name)
-            self.user_scene.template.modules = modules
-            self.action_reload()
+            if module_name not in modules:  # check not overwriting old module
+                modules.append(module_name)
+                self.user_scene.template['modules'] = modules
+                self.tree_tab.set_pick_class_options(modules)
+            self.save_scene_changes()  # save the updated modules list
+            self.action_reload()  # reload scene to import the new module
 
     def action_show_help(self, page='Introduction'):
         self.help_opened = self.help_tab.enabled = True
@@ -258,38 +274,62 @@ class Select(Scene):
     def __init__(self, screen, clock):
         super().__init__(screen, clock)
         self.create_draw_group((32, 32, 34))
-        self.project_path = ''
+        self.project_path = None
 
-        interface.Button(NodeProperties(self, 20, 20, 160, 25), self.draw_group, 'Select',
-                         self.select_project_path, color=(255, 255, 255))
-        interface.Button(NodeProperties(self, 20, 60, 160, 25), self.draw_group, 'Load',
-                         self.to_editor, color=(255, 255, 255))
+        interface.Button(NodeProperties(self, 20, 60, 160, 100), self.draw_group, 'Open Existing Project',
+                         self.select_project_path, color=C_LIGHT)
+        interface.Button(NodeProperties(self, 200, 60, 160, 100), self.draw_group, 'Open Demo Project',
+                         self.demo_project, color=C_LIGHT, background=(18, 26, 20))
+        self.font = pygame.font.SysFont('Calibri', 24, bold=True)
+
+    def draw(self):
+        rects = super().draw()
+
+        text.draw(self.screen, 'Welcome to', (20, 10), color=C_LIGHT_ISH)
+        text.draw(self.screen, 'Pygame Engine', (20, 24), color=C_LIGHT_ISH,
+                  font=self.font, static=True)
+        text.draw(self.screen, 'for Python 3.7+', (176, 30), color=C_LIGHT_ISH)
+        text.draw(self.screen, f'Running Pygame {pygame.version.ver}.', (20, 190),
+                  color=C_DARK_ISH, static=True)
+
+        if pygame.version.vernum[0] < 2:
+            text.draw(self.screen, 'This program has limited support for Pygame version 1.',
+                      (20, 210), color=(224, 120, 120))
+        if self.project_path == '':
+            text.draw(self.screen, f'Action failed. Please check the console.',
+                      (20, 230), color=(224, 120, 120))
+        return rects
+
+    def handle_events(self, pygame_events):
+        super().handle_events(pygame_events)
+
+        for event in pygame_events:
+            if event.type == pygame.VIDEOEXPOSE:
+                self.resize_draw_group()
 
     def select_project_path(self):
-        # Create an "Open" dialog box and set next_scene to the path
-        from tkinter.filedialog import askdirectory
-        from tkinter import Tk
-        Tk().withdraw()  # do not show a root window
-
+        # Allow pygame to process internal events to avoid "not responding".
+        pygame.event.pump()
+        # Create an "Open" dialog box and set project_path to the path
+        self.project_path = askdirectory()
         try:
-            self.project_path = askdirectory()
-            # Allow pygame to process internal events to avoid "not responding".
-            pygame.event.pump()
-
             # Open the configuration file to check it is readable.
             with open(self.project_path + '/project_config.json', 'r', encoding='utf-8') as f:
                 file_preview = f.read(32)
             print('Read project config:\n' + file_preview.replace('\n', '¬') + '...')
+            self.to_editor()
         except OSError as _error:
             print(f'Critical error opening file:\n    {_error}')
             self.project_path = ''
+            print('Please open a directory containing a project_config.json file.')
+
+    def demo_project(self):
+        self.project_path = sys.path[0] + '/demo_project'
+        self.to_editor()
 
     def to_editor(self):
         user_scenes = self.set_project(self.project_path)
         self.change_scene(Editor, user_scenes, self.project_path)
-
-    def update(self):
-        super().update()
 
     @staticmethod
     def set_project(project_path: str):

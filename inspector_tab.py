@@ -3,8 +3,9 @@ import ast
 
 from engine import text as text
 from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
-from engine.interface import Style, Scrollbar, State, TextEntry, Toggle
+from engine.interface import Style, Scrollbar, State, TextEntry, Toggle, Button
 import engine.template as template
+from engine.spritesheet import tint_surface
 
 from other_tab import TabHeading, string_color
 
@@ -19,7 +20,7 @@ class LiteralEntry(TextEntry):
         self.bound = bound
 
     def parse(self):
-        if len(self.text) > 8192:
+        if len(self.text) > 8192:  # ignore excessively long input
             return None
         try:
             literal = ast.literal_eval(self.text)
@@ -29,7 +30,7 @@ class LiteralEntry(TextEntry):
         if not self.allow_types or type(literal) in self.allow_types:
             return literal
         else:
-            try:
+            try:  # directly convertible to first allowed type (e.g. list to tuple)
                 return self.allow_types[0](literal)
             except TypeError:
                 return None
@@ -72,11 +73,12 @@ class InspectorTab(SpriteNode):
 
         TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
                    group, 'Inspector', style=self.style)
-        scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
-        group.change_layer(scrollbar, 2)
-
+        self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        group.change_layer(self.scrollbar, 2)
+        self.label_top = InspectorLabel(NodeProperties(self, 0, 0, self.transform.width,
+                                                       18, enabled=False), group)
         self.scroll_pixels = 0
-        self.scroll_limits = 0, 90
+        self.scroll_limits = 0, 0
         self.group = group
         self.ui_style = ui_style
         self.entry_style = Style.from_kwargs(dict(style=self.style, color_error=(224, 120, 120),
@@ -84,53 +86,66 @@ class InspectorTab(SpriteNode):
         self.describe_font = pygame.font.SysFont('Calibri', 13, italic=True)
 
         self.selected_node = None
-        self._enabled_toggle = None
-        self.widgets = Node(NodeProperties(self, 5, 5))
-        self.label_top = InspectorLabel(NodeProperties(self, 0, 0, self.transform.width,
-                                                       18, enabled=False), self.group)
+        self.user_scene = None
+        self.toggle_enabled = None
+        self.widget_holder = Node(NodeProperties(self, 5, 0))
+        self.set_selected(self.parent.selected_node, self.parent.user_scene)
 
     def update(self):
         super().update()
-        if self.selected_node is not self.parent.selected_node:
-            self.selected_node = self.parent.selected_node
-            for i in range(len(self.widgets.nodes)):
-                self.widgets.nodes[0].remove()
-            self.widgets.nodes.clear()
-            self._enabled_toggle = None
-            if self.selected_node is None:
-                self.generate_scene_inspector()
-            else:
-                self.generate_node_inspector()
-
         if self.selected_node is not None:
             self.update_node_inspector()
 
+    def set_selected(self, node, user_scene):
+        # Set the selected node and user scene to match the parent editor
+        self.selected_node = node
+        self.user_scene = user_scene
+        # Delete all previous widgets and clear references to them
+        for i in range(len(self.widget_holder.nodes)):
+            self.widget_holder.nodes[0].remove()
+        self.widget_holder.nodes.clear()
+        self.toggle_enabled = None
+        # Show either the scene or node inspector based on the selection
+        if self.selected_node is None:
+            self.generate_scene_inspector()
+        else:
+            self.generate_node_inspector()
+
     def generate_scene_inspector(self):
         self.label_top.enabled = False
+        self.dirty = 1
+        self.scroll_pixels = 0
+        self.scroll_limits = 0, 0
+        question_icon = self.parent.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8)
+        tint_surface(question_icon, self.style.get('color_scroll'))
+        Button(NodeProperties(
+            self.widget_holder, 127, 54, 16, 16), self.group, image=question_icon,
+            callback=lambda: self.parent.action_show_help('Groups'), style=self.ui_style)
 
     def half_widget_columns(self):
         """Return x values for left, right columns."""
-        if self.transform.width >= 275:
-            return 100, self.transform.width // 2 + 45
-        elif self.transform.width >= 100:
-            return 85, self.transform.width // 2 + 40
+        if self.transform.width >= 175:
+            return 95, self.transform.width // 2 + 40
         else:
             return 0, self.transform.width // 2 - 5
 
     def generate_node_inspector(self):
         self.label_top.enabled = True
+        self.label_top.transform.width = self.transform.width
         self.label_top.dirty = 1
+        self.dirty = 1
 
         current_y = 36
         half_widget_columns = self.half_widget_columns()
         half_widget_width = half_widget_columns[1] - half_widget_columns[0] - 5
+        full_widget_column = half_widget_columns[self.transform.width < 175]
 
         if getattr(self.selected_node, 'transform', False):
             current_y += 18
             for attribute_pair, allow_types in transform_types:
                 for column in (0, 1):
                     LiteralEntry(NodeProperties(
-                        self.widgets, half_widget_columns[column], current_y, half_widget_width, 15),
+                        self.widget_holder, half_widget_columns[column], current_y, half_widget_width, 15),
                         self.group, '', attribute_pair[column], self.set_transform_attribute,
                         allow_characters=LiteralEntry.NUMERIC, allow_types=allow_types,
                         style=self.entry_style)
@@ -139,21 +154,21 @@ class InspectorTab(SpriteNode):
 
         enabled = getattr(self.selected_node, 'enabled', None)
         if enabled is not None:
-            self._enabled_toggle = Toggle(NodeProperties(
-                self.widgets, half_widget_columns[0], current_y, half_widget_width, 15), self.group,
+            self.toggle_enabled = Toggle(NodeProperties(
+                self.widget_holder, full_widget_column, current_y, half_widget_width, 15), self.group,
                 str(enabled), self.set_enabled_attribute, enabled, style=self.ui_style)
-            self._enabled_toggle.bound = 'enabled'
+            self.toggle_enabled.bound = 'enabled'
             current_y += 20
 
         if isinstance(self.selected_node, pygame.sprite.DirtySprite):
             LiteralEntry(NodeProperties(
-                self.widgets, half_widget_columns[0], current_y, half_widget_width, 15),
+                self.widget_holder, full_widget_column, current_y, half_widget_width, 15),
                 self.group, '', '_layer', self.set_layer, allow_types=(int,),
                 allow_characters=LiteralEntry.NUMERIC, style=self.entry_style)
             current_y += 20
-            indexes = list(template.group_indexes(self.parent.user_scene, self.selected_node))
+            indexes = list(template.group_indexes(self.user_scene, self.selected_node))
             LiteralEntry(NodeProperties(
-                self.widgets, half_widget_columns[0], current_y, half_widget_width, 15),
+                self.widget_holder, full_widget_column, current_y, half_widget_width, 15),
                 self.group, str(indexes)[1:-1], 'groups', self.set_groups, allow_types=(list, tuple),
                 allow_characters='1234567890 [],', style=self.entry_style)
 
@@ -161,40 +176,41 @@ class InspectorTab(SpriteNode):
         self.label_top.transform.width = self.transform.width
         half_widget_columns = self.half_widget_columns()
         half_widget_width = half_widget_columns[1] - half_widget_columns[0] - 5
+        full_widget_column = half_widget_columns[self.transform.width < 175]
 
         if getattr(self.selected_node, 'transform', False):
             for i in range(6):
-                self.widgets.nodes[i].transform.x = half_widget_columns[i % 2]
+                self.widget_holder.nodes[i].transform.x = half_widget_columns[i % 2]
 
-        for widget in self.widgets.nodes:
-            if isinstance(widget, LiteralEntry) or widget is self._enabled_toggle:
+        for widget in self.widget_holder.nodes:
+            if isinstance(widget, LiteralEntry) or widget is self.toggle_enabled:
                 if widget.bound in ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y',
-                                    '_layer', 'enabled'):
+                                    '_layer', 'enabled', 'groups'):
                     widget.transform.width = half_widget_width
-                if widget.bound in ('_layer', 'enabled'):
-                    widget.transform.x = half_widget_columns[0]
+                if widget.bound in ('_layer', 'enabled', 'groups'):
+                    widget.transform.x = full_widget_column
 
     def update_node_inspector(self):
-        for widget in self.widgets.nodes:
+        for widget in self.widget_holder.nodes:
             if isinstance(widget, LiteralEntry) and widget.state != State.selected:
                 if widget.bound in template.DATA_NODE[:-1]:  # transform attributes
                     value = getattr(self.selected_node.transform, widget.bound)
                 elif widget.bound == 'groups':
-                    value = list(template.group_indexes(self.parent.user_scene, self.selected_node))
+                    value = list(template.group_indexes(self.user_scene, self.selected_node))
                 else:
                     value = getattr(self.selected_node, widget.bound)
                 if str(value) != widget.text:
                     widget.text = str(value)
                     widget.dirty = 1
 
-        if self._enabled_toggle is not None:
-            if self._enabled_toggle.checked != self.selected_node.enabled:
-                self._enabled_toggle.checked = self.selected_node.enabled
-                self._enabled_toggle.dirty = 1
+        if self.toggle_enabled is not None:
+            if self.toggle_enabled.checked != self.selected_node.enabled:
+                self.toggle_enabled.checked = self.selected_node.enabled
+                self.toggle_enabled.dirty = 1
 
     def set_enabled_attribute(self, set_enable):
         self.selected_node.enabled = set_enable
-        self._enabled_toggle.message = str(set_enable)
+        self.toggle_enabled.message = str(set_enable)
         if not self.parent.play:
             template.update_node(self.selected_node, 'enabled')
 
@@ -217,10 +233,10 @@ class InspectorTab(SpriteNode):
     def set_groups(self, literal, _):
         self.selected_node.kill()
         for index in literal:
-            if 0 <= index < len(self.parent.user_scene.groups):
-                self.selected_node.add(self.parent.user_scene.groups[index])
+            if 0 <= index < len(self.user_scene.groups):
+                self.selected_node.add(self.user_scene.groups[index])
         if not self.parent.play:
-            template.update_node(self.selected_node, 'groups', self.parent.user_scene)
+            template.update_node(self.selected_node, 'groups', self.user_scene)
 
     def draw(self):
         super().draw()
@@ -228,34 +244,29 @@ class InspectorTab(SpriteNode):
         if self._visible and self.dirty > 0:
             self.image.fill(self.style.get('background'))
 
-            for widget in self.widgets.nodes:
+            self.widget_holder.transform.y = -self.scroll_pixels
+            for widget in self.widget_holder.nodes:
                 widget.enabled = 0 < widget.transform.y - self.scroll_pixels < self.transform.height
 
             if self.selected_node is None:
-                text.draw(self.image, 'Scene: ' + type(self.parent.user_scene).__name__, (5, 2))
-                text.draw(self.image, 'Scene groups table', (5, 44),
+                text.draw(self.image, 'Scene: ' + type(self.user_scene).__name__, (5, 2))
+                text.draw(self.image, 'Scene groups table', (5, 55),
                           color=self.style.get('color'), static=True)
-                text.draw(self.image, 'Group 0 is scene.draw_group, used for drawing all sprites.',
-                          (5, 60), font=self.describe_font, static=True)
-                text.draw(self.image, 'Other groups must be added to scene.groups in its constructor.',
-                          (5, 72), font=self.describe_font, static=True)
-                for i, group in enumerate(self.parent.user_scene.groups):
-                    text.draw(self.image, str(i), (5, 85 + i * 14))
-                    text.draw(self.image, str(group), (25, 85 + i * 14), color=self.style.get('color_scroll'))
+                for i, group in enumerate(self.user_scene.groups):
+                    text.draw(self.image, str(i), (5, 80 + i * 14))
+                    text.draw(self.image, str(group), (25, 80 + i * 14), color=self.style.get('color_scroll'))
             else:
                 self.draw_node_inspector()
-
+                i = -1
                 for i, prop in enumerate(self.readable_properties(self.selected_node)):
                     text.draw(self.image, prop, (5, 210 + i * 14 - self.scroll_pixels),
                               color=self.style.get('color'))
                     text.draw(self.image, repr(getattr(self.selected_node, prop)),
                               (135, 210 + i * 14 - self.scroll_pixels))
-
                 self.scroll_limits = 0, max(0, 230 + i * 14 - self.transform.height)
 
     def draw_node_inspector(self):
-        self.widgets.transform.y = -self.scroll_pixels
-        _widgets = (widget for widget in self.widgets.nodes)
+        _widgets = (widget for widget in self.widget_holder.nodes)
 
         color = self.style.get('color')
         self.scroll_text('Any changes to the following attributes are saved in Editing mode.',
@@ -268,9 +279,9 @@ class InspectorTab(SpriteNode):
             for label in ('Position', 'Size', 'Anchor'):
                 widget_x, widget_y = next(_widgets).transform.position
                 self.scroll_text(label, (widget_x - 80, widget_y), color, static=True)
-                next(_widgets)
+                next(_widgets)  # skip widget to get to next column
 
-        if self._enabled_toggle is not None:
+        if self.toggle_enabled is not None:
             self.scroll_text('Enabled', (5, next(_widgets).transform.y), color)
 
         if isinstance(self.selected_node, pygame.sprite.DirtySprite):
@@ -291,6 +302,7 @@ class InspectorTab(SpriteNode):
         super().on_resize()
         if self.selected_node is not None:
             self.resize_node_inspector()
+        self.scrollbar.dirty = 1
 
     @staticmethod
     def readable_properties(node):

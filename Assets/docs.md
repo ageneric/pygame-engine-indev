@@ -1,10 +1,14 @@
 # Pygame Engine Help Modules
 ## Introduction
-Welcome to the Help interface. This program can be used to build applications and games, using Python and the Pygame library. If using scripting, you will code in an Object Oriented style.
+This is the help interface for Pygame Engine, a program used to build applications and games using Python and the Pygame library. If using scripting, you will code in an Object Oriented style.
 
 To build a graphical interface, start by creating an Instance in the Node Tree. An Instance is a copy of a class that may run scripts or have graphics.
 
 To build games with Python scripting, start by defining a class in the Project Tab. A class is a blueprint for an entity used to create Instances.
+
+
+You can make a copy of any project by simply duplicating the folder.
+The only way to make a new project is to duplicate the blank project folder, in this version. Project folders can be anywhere on your computer.
 
 ## Scene
 Your project is contained in Scenes. Most projects use one Scene exactly.
@@ -79,25 +83,30 @@ If the following methods are implemented, they will be called every frame in the
 `def draw(self): ...`
 (where self is a Node)
 
+Nodes can be disabled, which will stop them from updating or drawing. To do this, set its enabled property (for example):
+`self.enabled = False`
+(where self is a Node)
+
 To remove the Node, use:
 `self.remove()`
 (where self is a Node)
 
 ## SpriteNode
-The SpriteNode class subclasses the Node class and is suitable for graphics.
+The SpriteNode class is a kind of Node that is suitable for graphics. (It is a subclass of both the Node class and the pygame.sprite.DirtySprite class.)
 
 To change the appearance, first, draw to its image attribute. This is a Pygame surface with size equal to the transform size (for example):
 `self.image.fill((0, 0, 255))`
 `pygame.draw.rect(self.image, (80, 80, 80), (5, 0, 50, 10))`
-(where self is a Node)
+(where self is a SpriteNode)
 Then, to update the graphic shown on screen for this frame, use:
 `self.dirty = 1`
-(where self is a Node)
+(where self is a SpriteNode)
 This property is reset from 1 to 0 every frame. To always update the graphic, set this property to 2.
 
 All Node properties are available, in addition to:
-`self.visible`
-(where self is a Node, read-only, Boolean)
+`self.visible # read-only`
+`self.groups`
+(where self is a SpriteNode)
 
 SpriteNodes support transparency if initialised with an image or fill color with an alpha channel (for example):
 `super().__init__(groups, image=your_per_pixel_alpha_image)`
@@ -119,5 +128,36 @@ Static - set to True to cache the text sprite (for faster drawing).
 Draws (blit) a text box to the surface at the (x, y) position specified.
 
 The width and height, if omitted, fit the text's size. If either is omitted, the text sprite is cached. Set middle = True to centre text.
+
+## Groups
+Groups contain multiple sprites (SpriteNodes) and have a range of uses. Sprites can be in more than one group.
+
+A scene has a list of groups. This is displayed in the Inspector tab when nothing is selected as the scene groups table. To get this list, use:
+`self.groups`
+(where self is a Scene)
+
+Group 0 is the 'draw group', used for drawing all sprites. Sprites are automatically part of the 'draw group'. To get this group, use either one of:
+`self.draw_group`
+`self.groups[0]`
+(where self is a Scene)
+
+You can create Group 1 and onwards to be used for collision checking (for example):
+`self.groups.append(pygame.sprite.Group())`
+(where self is a Scene)
+(within the constructor of a Scene subclass)
+
+Collision checking can be done between sprites and groups (for example):
+`pygame.sprite.spritecollideany(self, self.scene().groups[1])`
+(where self is a SpriteNode)
+(returns a single sprite from group 1 that collides with this sprite)
+
+You can check if a sprite is part of a group (for example):
+`self.scene().groups[1].has(self)`
+(where self is a SpriteNode)
+Read the pygame.sprite documentation for more group methods.
+
+To get the Scene from a Node script, for accessing the above Scene methods and attributes, use:
+`self.scene()`
+(where self is a Node)
 
 # EOF

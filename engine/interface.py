@@ -163,11 +163,11 @@ class Button(SpriteNode):
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
+            self.image.fill(self.switch_style('background'))
             if self.style.get('image'):
-                self.image.fill(BACKGROUND_TRANSPARENT)
-                self.image.blit(self.switch_style('image'), (0, 0))
-            else:
-                self.image.fill(self.switch_style('background'))
+                image_rect = self.style.get('image').get_rect()
+                offset = (self.transform.height - image_rect.height) // 2
+                self.image.blit(self.switch_style('image'), (self.style.get('imagex', offset), offset))
             if self.message:
                 position = (self.transform.width / 2, self.transform.height / 2)
                 color = self.switch_style('color')
@@ -481,7 +481,7 @@ class SpriteList(GridList):
 class Scrollbar(SpriteNode):
     event_handler = (pygame.MOUSEBUTTONDOWN,)
 
-    def __init__(self, node_props, group, scroll_speed=6, **kwargs):
+    def __init__(self, node_props, group, scroll_speed=12, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
         self.scroll_speed = scroll_speed
@@ -489,12 +489,13 @@ class Scrollbar(SpriteNode):
             self.parent.scroll_pixels = 0
         if not hasattr(self.parent, 'scroll_limits'):
             self.parent.scroll_limits = None
-        self.scroll_by(0)
+        self.scroll_by(0)  # calculate and set the height
 
     def draw(self):
         if self._visible and self.dirty > 0:
             self.transform.x = self.parent.transform.width - self.transform.width
             self.image.fill(self.style.get('color_scroll'))
+            self.scroll_by(0)  # re-calculate and set the height
 
     def scroll_by(self, pixels):
         self.parent.scroll_pixels += pixels
@@ -503,24 +504,24 @@ class Scrollbar(SpriteNode):
             min_scroll, max_scroll = self.parent.scroll_limits
             self.parent.scroll_pixels = min(max(
                 self.parent.scroll_pixels, min_scroll), max_scroll)
-
+            # Set scrollbar height to proportionately show the visible height
             full_height = max(1, self.parent.transform.height + max_scroll - min_scroll)
             start_bar = (self.parent.scroll_pixels - min_scroll) / full_height
             self.transform.y = start_bar * self.parent.transform.height
             self.transform.height = self.parent.transform.height ** 2 / full_height
-            self.dirty = 1
 
         if self.parent.dirty < 2:
             self.parent.dirty = 1
 
     def event(self, event):
+        # Collision check using parent rect for a larger scroll input area
         if self.parent.rect.collidepoint(event.pos):
-            if event.button == 4:
+            if event.button == 4:  # mouse scroll input
                 self.scroll_by(-self.scroll_speed)
-            elif event.button == 5:
+            elif event.button == 5:  # mouse scroll input
                 self.scroll_by(self.scroll_speed)
-            elif self.rect.x - 2 <= event.pos[0]:  # wider click margin
-                if event.button == 1:
+            elif event.button == 1:  # left click input
+                if self.rect.x - 3 < event.pos[0]:  # allow close clicks
                     if event.pos[1] > self.rect.centery:
                         self.scroll_by(self.scroll_speed)
                     else:

@@ -4,14 +4,15 @@ import json
 import sys
 import inspect
 from pathlib import Path
-from importlib import import_module
+from importlib import import_module, reload
 import engine.base_node
 from engine.base_node import NodeProperties
 import engine.interface
 
 NODE_CLASSES = ('Node', 'SpriteNode')
-INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'GridList')
+INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'GridList', 'Scrollbar')
 DATA_NODE = ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled')
+JSON_SERIALS = (int, bool, float, str, list, tuple, dict)
 
 nodes_to_template = {}
 
@@ -39,7 +40,10 @@ def load_nodes_wrapper(scene, template: dict):
     nodes_to_template[scene] = template
 
     for name in template.get('modules', []):
-        module = import_module(name)
+        if sys.modules.get(name):
+            module = reload(sys.modules[name])  # reload previously imported modules
+        else:
+            module = import_module(name)  # import new modules
         scene.user_classes[name] = getattr(module, name.split('.')[-1], None)
 
     if template.get('nodes'):
@@ -59,7 +63,7 @@ def instantiate(scene, template: dict, parent):
     node_props = NodeProperties(parent, *template['data_node'])
     # Get '*args' and '**kwargs' arguments; replace None with empty
     arguments = template.get('args', None)
-    arguments = [] if arguments is None else arguments
+    arguments = {} if arguments is None else arguments
     keyword_arguments = template.get('kwargs', None)
     keyword_arguments = {} if keyword_arguments is None else keyword_arguments
     # Get groups argument if used
@@ -70,9 +74,12 @@ def instantiate(scene, template: dict, parent):
             groups = scene.groups[groups]
         elif hasattr(groups, '__len__'):  # includes list, tuple
             groups = [scene.groups[group] for group in groups]
-        arguments.insert(0, groups)
+        # arguments.insert(0, groups)
+        d = {'groups': groups}
+        d.update(arguments)
+        arguments = d
 
-    new_node = inst_class(node_props, *arguments, **keyword_arguments)
+    new_node = inst_class(node_props, *arguments.values(), **keyword_arguments)
     if template.get('layer', None) is not None:
         new_node.groups()[0].change_layer(new_node, template['layer'])
     nodes_to_template[new_node] = template
@@ -84,8 +91,14 @@ def resolve_class(scene, name):
         return getattr(engine.base_node, name)
     elif name in INTERFACE_CLASSES:
         return getattr(engine.interface, name)
-    else:
+    elif name in scene.user_classes:
         return scene.user_classes[name]
+    else:
+        return NodeClassNotFound
+
+class NodeClassNotFound(engine.base_node.Node):
+    def __init__(self, node_props, *args, **kwargs):  # accept any arguments
+        super().__init__(node_props)
 
 def register_node(scene, parent_template: dict, new_node):
     """Create a template for the new node and add it to the
@@ -104,9 +117,19 @@ def register_node(scene, parent_template: dict, new_node):
     if parameters.get('groups') is not None and callable(groups_method):
         new_template['data_groups'] = list(group_indexes(scene, new_node))
     # Store all other parameters that match a current attribute
-    for attribute in parameters:
-        if attribute not in ('node_props', 'groups', 'args', 'kwargs'):
-            new_template[attribute] = getattr(new_node, attribute, None)
+    for attribute, parameter in parameters.items():
+        if attribute not in ('node_props', 'groups', 'args', 'kwargs', 'style') and hasattr(new_node, attribute):
+            value = getattr(new_node, attribute)
+            # TODO: support non-serializable types
+            if (value is None or type(value) in JSON_SERIALS) and value != parameter.default:
+                if parameter.kind == parameter.POSITIONAL_OR_KEYWORD:
+                    if not new_template.get('args', False):
+                        new_template['args'] = {}
+                    new_template['args'][attribute] = value
+                elif parameter.kind == parameter.KEYWORD_ONLY:
+                    if not new_template.get('kwargs', False):
+                        new_template['kwargs'] = {}
+                    new_template['kwargs'][attribute] = value
 
     if not parent_template.get('nodes'):
         parent_template['nodes'] = []

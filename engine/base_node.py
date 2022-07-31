@@ -14,6 +14,8 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
+    """A data structure that stores position and size information.
+    Every node will hold an instance of this class as Node.transform."""
     __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'node'
 
     def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, node=None):
@@ -36,19 +38,21 @@ class Transform:
             return f'<Transform({round(self.x, 3)}, {round(self.y, 3)}), ' \
                    f'{self.width}, {self.height}, {self.anchor_x}, {self.anchor_y}>'
 
+    # Alternative constructor and conversions for use by user
     @classmethod
     def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0):
         return cls(rect.x + rect.width * anchor_x, rect.y + rect.height * anchor_y,
                    rect.width, rect.height, anchor_x, anchor_y)
 
     def rect(self):
-        x, y = self.rect_position(self.x, self.y)
-        return pygame.Rect(x, y, self.width, self.height)
+        return pygame.Rect(*self.rect_position(self.x, self.y), *self.get_surface_size())
 
     def rect_position(self, x: float, y: float) -> (int, int):
         return int(x - self.width * self._anchor_x), int(y - self.height * self._anchor_y)
 
-    def __setattr__(self, name, val):  # may alternatively be achieved using properties
+    # Called when any attribute is set
+    # May alternatively be achieved using properties
+    def __setattr__(self, name, val):
         object.__setattr__(self, name, val)
         node = getattr(self, 'node', None)
         if node is not None and name in ('x', 'y', 'width', 'height'):
@@ -75,7 +79,7 @@ class Transform:
         object.__setattr__(self, 'width', width_height[0])
         self.height = width_height[1]
 
-    def get_positive_size(self) -> (int, int):
+    def get_surface_size(self) -> (int, int):
         return max(0, min(8192, self.width)), max(0, min(8192, self.height))
 
     @property
@@ -105,7 +109,7 @@ class Transform:
     @anchor_y.setter
     def anchor_y(self, anchor_y: float):
         # Shift y value so that the rectangle stays in place
-        new_y = self.y + (anchor_y - self._anchor_y) * self.width
+        new_y = self.y + (anchor_y - self._anchor_y) * self.height
         # Set the y attribute directly, no transform_update is needed
         object.__setattr__(self, 'y', new_y)
         self._anchor_y = anchor_y
@@ -157,6 +161,7 @@ class Node:
         return rect
 
     def scene(self):
+        """Get the scene that this node belongs to."""
         parent = self.parent
         while isinstance(parent, Node):
             parent = parent.parent
@@ -190,15 +195,16 @@ class Node:
             self._set_rect_position(x, y)
 
     def on_resize(self):
-        self.rect.width = self.transform.width
-        self.rect.height = self.transform.height
+        self.rect.size = self.transform.get_surface_size()
 
     def _set_visible(self, set_visible: bool):
+        """Internal method to set the visible attribute of child sprites."""
         if self.nodes:
             for child in self.nodes:
                 child._set_visible(set_visible)
 
     def _set_rect_position(self, x, y):
+        """Internal method to set the rect attribute of child nodes."""
         x, y = self.transform.rect_position(x, y)
         self.rect.x, self.rect.y = x, y
         if self.nodes:
@@ -229,7 +235,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         # Show or hide the SpriteNode based on its parent nodes in the tree
         # If any parent node is disabled then its child nodes are not visible
         self._visible = self.world_visible()
-        surface_size = self.transform.get_positive_size()
+        surface_size = self.transform.get_surface_size()
 
         if image is None:
             # Use the per-pixel alpha flag if given no/a transparent colour
@@ -271,7 +277,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
 
     def on_resize(self):
         Node.on_resize(self)
-        self.image = pygame.Surface(self.transform.get_positive_size(),
+        self.image = pygame.Surface(self.transform.get_surface_size(),
                                     self.image.get_flags(), self.image)
         # Repaint the fill colour
         if getattr(self, 'fill_color', None) is not None:

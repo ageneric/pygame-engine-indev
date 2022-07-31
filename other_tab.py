@@ -57,7 +57,7 @@ class HelpTab(SpriteNode):
 
         # Initialise buttons to access help pages
         x = 171
-        pairs = ('Node', 'Node'), ('Scene', 'Scene'), ('Text', 'Text'), ('Sprite', 'SpriteNode')
+        pairs = ('Node', 'Node'), ('Scene', 'Scene'), ('Sprite', 'SpriteNode'), ('Group', 'Groups'), ('Text', 'Text')
         for name, key in pairs:
             Button(NodeProperties(self, x, -20, 45, 18), group, name,
                    lambda page=key: self.parent.action_show_help(page), style=self.style)
@@ -80,9 +80,9 @@ class HelpTab(SpriteNode):
                 continue
             # Apply the font and style of the tag at line start
             elif line.startswith('`') and line.endswith('`'):
-                current_y = self.scroll_wrap(line[2:-1], current_y, color, self.font_monospace)
-            elif line.startswith('(') and line.endswith(')'):
-                current_y = self.scroll_wrap(line[1:], current_y, font=self.font_small)
+                current_y = self.scroll_wrap(line[1:-1], current_y, color, self.font_monospace)
+            elif line.startswith('(') and line.endswith(')') or line.startswith('#'):
+                current_y = self.scroll_wrap(line, current_y, font=self.font_small)
             else:
                 current_y = self.scroll_wrap(line, current_y, color, self.font_reading)
         return current_y
@@ -107,8 +107,10 @@ class HelpTab(SpriteNode):
 
     def scroll_wrap(self, message, current_y, color=text.COLOR_DEFAULT,
                     font=text.FONT_DEFAULT):
+        """Applies text wrapping to message and draws it at the current y."""
         words = message.split()
-        lines, line_number = [''], 0
+        lines = ['']
+        line_number = 0  # current index into lines
         max_width = max(100, min(450, self.transform.width - 8))
         # Split the message into lines, wrapping when width does not fit
         for word in words:
@@ -185,8 +187,9 @@ class ListSelector(GridList):
     def draw(self):
         SpriteNode.draw(self)
         if self._visible and self.dirty > 0:
+            self.transform.height = self.spacing * len(self.tiles)
             self.image.fill(self.style.get('background'))
-            indexes = self.indexes_in_view()
+            indexes = range(len(self.tiles))
             for i, position in zip(indexes, self.tile_positions(indexes.start)):
                 if i == self.hovered_index:
                     text.box(self.image, self.tiles[i], position, self.transform.width, self.spacing,
@@ -241,7 +244,7 @@ class DropdownEntry(TextEntry):
                                                      and self.grid.enabled):
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self.state = State.selected
-                    self.grid.options = self.options
+                    self.grid.tiles = self.options
                     self.grid.enabled = True
                 elif last_state == State.idle:
                     self.state = State.hovered

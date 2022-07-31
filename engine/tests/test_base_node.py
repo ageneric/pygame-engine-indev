@@ -21,7 +21,7 @@ def test_transform():
 
     print("Test: A transform's 'positive size' has non-negative width and height.")
     for transform in test_transforms:
-        positive_size = transform.get_positive_size()
+        positive_size = transform.get_surface_size()
         assert positive_size[0] >= 0 and positive_size[1] >= 0
     print('Test: A transform may be converted to and from a Pygame Rect.'
           + '\n  ... The position and size only stay precise to the nearest integer.')

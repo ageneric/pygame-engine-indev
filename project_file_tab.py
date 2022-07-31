@@ -7,6 +7,7 @@ import engine.text as text
 import engine.template as template
 from engine.base_node import SpriteNode, NodeProperties, Anchor, Node
 from engine.interface import Style, Button, State, TextEntry
+from engine.spritesheet import tint_surface
 
 from other_tab import TabHeading
 import project_format
@@ -14,10 +15,11 @@ import project_format
 class ProjectFileTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props, group, ui_style, font_reading, **kwargs):
+    def __init__(self, node_props, group, icon_sheet, ui_style, font_reading, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
         self.font_reading = font_reading
+        self.icons = [icon_sheet.load_image((i, 0, 1, 1), 8) for i in (0, 1)]
 
         TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
                    group, 'Project Files', style=self.style)
@@ -29,17 +31,18 @@ class ProjectFileTab(SpriteNode):
             button_explorer.state = State.locked
         Button(NodeProperties(self, 5, 30, 120, 20), group,
                'Define Class', self.show_class_menu, style=ui_style)
-        Button(NodeProperties(self, 145, 5, 80, 20), group,
+        Button(NodeProperties(self, 140, 5, 100, 20), group,
                'Edit Scenes', self.open_scenes, style=ui_style)
 
-        Button(NodeProperties(self.class_menu, 5, 0, 80, 20), group,
+        subclass_node = Button(NodeProperties(self.class_menu, 5, 0, 80, 20), group,
                'Node', self.new_node_subclass, style=ui_style, background_hovered=(120, 60, 80))
-        Button(NodeProperties(self.class_menu, 90, 0, 100, 20), group,
+        subclass_sprite_node = Button(NodeProperties(self.class_menu, 90, 0, 100, 20), group,
                'SpriteNode', self.new_sprite_node_subclass, style=ui_style, background_hovered=(60, 120, 80))
-
+        self.buttons_subclass = [subclass_node, subclass_sprite_node]
         self.class_name = 'MyClass'
         TextEntry(NodeProperties(self.class_menu, 5, 25, 130, 18), group, self.class_name,
-                  cursor='|.py', enter_callback=self.set_class_name, style=ui_style)
+                  cursor='|.py', edit_callback=self.edit_class_name, style=ui_style,
+                  background=ui_style.get('background_indent'))
 
     def draw(self):
         super().draw()
@@ -47,8 +50,14 @@ class ProjectFileTab(SpriteNode):
             self.image.fill(self.style.get('background'))
 
             if self.class_menu.enabled:
-                text.draw(self.image, 'Please select a base class.',
+                text.draw(self.image, 'Please select a base class and a Python class name.',
                           (5, 55), self.style.get('color'), self.font_reading)
+            elif hasattr(self.parent.user_scene, 'user_classes'):
+                # Draw a list of the user classes with icons to left
+                user_classes = self.parent.user_scene.user_classes.items()
+                for i, (name, module) in enumerate(user_classes):
+                    self.image.blit(self.icons[issubclass(module, SpriteNode)], (5, i*14 + 59))
+                    text.draw(self.image, f'{name}.py', (19, i*14 + 55))
 
     def open_nt_explorer(self):
         try:
@@ -65,14 +74,19 @@ class ProjectFileTab(SpriteNode):
         self.class_menu.enabled = not self.class_menu.enabled
         self.dirty = 1
 
-    def set_class_name(self, class_name):
+    def edit_class_name(self, class_name):
         self.class_name = class_name
+        # Lock buttons if the class name is not valid
+        new_state = State.idle if self.class_name.isidentifier() else State.locked
+        for button in self.buttons_subclass:
+            button.state = new_state
+            button.dirty = 1
 
     def new_sprite_node_subclass(self):
         self.new_node_subclass(True)
 
     def new_node_subclass(self, is_sprite_node=False):
-        if self.class_name == '' or self.class_name is None:
+        if self.class_name is None or not self.class_name.isidentifier():
             return
 
         parent_class = 'SpriteNode' if is_sprite_node else 'Node'

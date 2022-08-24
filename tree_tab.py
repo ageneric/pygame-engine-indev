@@ -190,14 +190,14 @@ class TreeTab(SpriteNode):
             NodeProperties(self.grid, width=2), group, style=self.style)
 
         class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
-        if hasattr(self.grid.tree, 'user_classes'):
-            class_options.extend(self.grid.tree.user_classes.keys())
+        if hasattr(self.grid.tree, 'template') and 'modules' in self.grid.tree.template:
+            class_options.extend(self.grid.tree.template['modules'])
 
         self.toggle = interface.Toggle(
             NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
             group, 'Nodes v', style=ui_style, callback=self.toggle_grid, checked=self.grid.enabled)
         self.pick_class = DropdownEntry(
-            NodeProperties(self, 5, self.transform.height - 72, self.transform.width - 115, 18),
+            NodeProperties(self, 5, self.transform.height - 72, max(0, self.transform.width - 115), 18),
             group, default_text=class_options[0], options=class_options, style=ui_style)
         self.button_add = interface.Button(
             NodeProperties(self, self.transform.width - 105, self.transform.height - 72, 100, 18),
@@ -209,7 +209,7 @@ class TreeTab(SpriteNode):
             NodeProperties(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom, False),
             group, 'Delete', style=ui_style, callback=self.action_delete_node, background=(76, 36, 36))
         self.button_clear = interface.Button(NodeProperties(
-            self.grid,  self.grid.transform.width - 65, 0, 100, 20, Anchor.right, Anchor.bottom, False),
+            self.grid, self.grid.transform.width - 65, 0, 100, 20, Anchor.right, Anchor.bottom, False),
             group, 'Clear Selected', self.action_clear, style=ui_style)
 
     def update(self):
@@ -230,6 +230,9 @@ class TreeTab(SpriteNode):
             self.image.fill(self.style.get('background'))
             text.draw(self.image, 'Create Instance', (5, self.transform.height - 89),
                       color=self.style.get('color'))
+            if self.parent.play:
+                text.draw(self.image, 'Changes are not saved in Play mode.',
+                          (5, self.transform.height - 35))
 
     def toggle_grid(self, checked):
         self.grid.enabled = checked
@@ -239,13 +242,23 @@ class TreeTab(SpriteNode):
         super().on_resize()
         self.grid.transform.size = (max(0, self.transform.width - 10),
                                     max(0, self.transform.height - 120))
-        self.pick_class.transform.width = max(0, self.transform.width - 120)
-        self.button_add.transform.x = self.transform.width - 105
-        self.button_add_child.transform.x = self.transform.width - 105
+        self.pick_class.transform.width = max(0, self.transform.width - 115)
+        self.pick_class.grid.transform.width = self.pick_class.transform.width
+        self.pick_class.transform.y = self.transform.height - 72
+        for i, button in enumerate((self.button_add, self.button_add_child)):
+            button.transform.position = (self.transform.width - 105,
+                                         self.transform.height - 72 + 20 * i)
+        self.button_delete.transform.x = self.grid.transform.width
+        self.button_clear.transform.x = self.grid.transform.width - 65
 
     def action_clear(self):
         self.grid.replace_entry(None, 'selected_entry')
         self.parent.clear_selected_node()
+
+    def set_pick_class_options(self, user_class_options):
+        class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
+        class_options.extend(user_class_options)
+        self.pick_class.options = class_options
 
     def action_add_node(self):
         if self.parent.selected_node is not None:

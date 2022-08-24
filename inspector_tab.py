@@ -19,7 +19,7 @@ class LiteralEntry(TextEntry):
         self.bound = bound
 
     def parse(self):
-        if len(self.text) > 8192:
+        if len(self.text) > 8192:  # ignore excessively long input
             return None
         try:
             literal = ast.literal_eval(self.text)
@@ -29,7 +29,7 @@ class LiteralEntry(TextEntry):
         if not self.allow_types or type(literal) in self.allow_types:
             return literal
         else:
-            try:
+            try:  # directly convertible to first allowed type (e.g. list to tuple)
                 return self.allow_types[0](literal)
             except TypeError:
                 return None

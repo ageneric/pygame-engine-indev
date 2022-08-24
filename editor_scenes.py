@@ -15,10 +15,16 @@ from project_file_tab import ProjectFileTab
 from tree_tab import TreeTab
 from inspector_tab import InspectorTab
 
-TAB_PADDING = 8
+TAB_PADDING = 8  # spacing between tabs in the editor
+directions = {  # movement directions caused by pressing Shift + key
+    pygame.K_RIGHT: ('x', 1), pygame.K_LEFT: ('x', -1),
+    pygame.K_DOWN: ('y', 1),  pygame.K_UP: ('y', -1)
+}
 
 class Editor(Scene):
-    """The editor that enables the user to edit a scene."""
+    """The editor that enables the user to edit a scene.
+    Takes user_module, the module to run, and user_path, the path to the module.
+    """
     def __init__(self, screen, clock, user_module, user_path):
         super().__init__(screen, clock)
         self.create_draw_group((20, 20, 24))
@@ -31,17 +37,19 @@ class Editor(Scene):
         self.play = False
         self.help_opened = False
 
+        # Define constant graphical settings and load graphics
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         tab_style = interface.Style(background_editor=(20, 20, 24),
             background=(48, 48, 50), background_indent=(60, 60, 60),
             tabsize=20, color=C_LIGHT, color_scroll=(100, 100, 100))
         ui_style = interface.Style.from_kwargs(
             dict(style=tab_style, background=(30, 36, 36)))
-        font_small = pygame.font.SysFont('Calibri', 15)
-
-        font_reading = pygame.font.SysFont('Calibri', 15)
+        menu_bar_style = interface.Style.from_kwargs(
+            dict(style=tab_style, background=tab_style.get('background_editor'), imagex=5))
+        self.font_reading = pygame.font.SysFont('Calibri', 15)
         self.icon_sheet = TileSpriteSheet('Assets/EditorIcons.png')
 
+        # Initialise the tabs
         self.tree_tab = TreeTab(NodeProperties(
             self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING),
             self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
@@ -55,10 +63,10 @@ class Editor(Scene):
         self.project_file_tab = ProjectFileTab(NodeProperties(
             self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
             self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
-            self.draw_group, ui_style, font_reading, style=tab_style)
+            self.draw_group, ui_style, self.font_reading, style=tab_style)
         self.help_tab = HelpTab(NodeProperties(
             self, scene_tab_x, 48, self.user_scene_rect.width, 300, enabled=False),
-            self.draw_group, font_reading, style=tab_style)
+            self.draw_group, self.font_reading, style=tab_style)
 
         self.toggle_play = interface.Toggle(NodeProperties(self, 280, 4, 40, 20),
             self.draw_group, 'Play', self.action_play, checked=self.play,
@@ -74,13 +82,9 @@ class Editor(Scene):
             'Help', lambda: self.action_show_help('Introduction'),
             background=tab_style.get('background_editor'), color=tab_style.get('color'))
 
-        self.recent_frames_ms = []
+        self.recent_frames_ms = []  # used by frame speed counter
 
     def resize(self):
-        self.resize_draw_group()
-        if hasattr(self.user_scene, 'background_surf'):
-            self.user_scene.resize_draw_group()
-
         user_scene_width = self.user_scene_rect.width
         scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
         self.user_scene_rect.x = scene_tab_x
@@ -110,6 +114,7 @@ class Editor(Scene):
 
     def draw(self):
         rects = super().draw()
+
         user_rects = self.user_scene.draw()
         if not self.help_opened:
             user_scene_top_left = self.user_scene_rect.topleft
@@ -124,7 +129,7 @@ class Editor(Scene):
             if self.scene_tab.box.enabled:
                 self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
 
-        # TODO: move this frame counter to an appropriate tab
+        # TODO: consider moving this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
         self.recent_frames_ms.append(rawtime)
         if len(self.recent_frames_ms) > 12:
@@ -133,7 +138,7 @@ class Editor(Scene):
         else:
             message = f'{rawtime}ms processing / frame'
 
-        rect = text.draw(self.screen, message, (30, 5), color=C_LIGHT_ISH)
+        rect = text.draw(self.screen, message, (54, 5), color=C_LIGHT_ISH, font=self.font_reading)
         self.draw_group.repaint_rect(rect)
 
         return rects
@@ -197,23 +202,22 @@ class Editor(Scene):
         self.inspector_tab.dirty = 1
 
     def translate_selected_node(self, event):
-        if event.key == pygame.K_RIGHT:
-            self.selected_node.transform.x += 1
-        if event.key == pygame.K_LEFT:
-            self.selected_node.transform.x -= 1
-        if event.key == pygame.K_DOWN:
-            self.selected_node.transform.y += 1
-        if event.key == pygame.K_UP:
-            self.selected_node.transform.y -= 1
+        if event.key in directions and hasattr(self.selected_node, 'transform'):
+            axis, delta = directions[event.key]
+            new_location = getattr(self.selected_node.transform, axis) + delta
+            setattr(self.selected_node.transform, axis, new_location)
 
     def action_play(self, checked):
+        self.save_scene_changes()
+        self.action_reload()
         self.play = checked
+        self.tree_tab.dirty = 1
 
     def action_reload(self):
         if self.play:
             self.toggle_play.checked = False
             self.toggle_play.dirty = 1
-            self.action_play(False)  # stop playing
+            self.play = False
 
         self.selected_node = None
         reload(self.user_module)

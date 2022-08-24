@@ -1,5 +1,4 @@
 import pygame
-from pathlib import Path
 from .template import load_nodes_wrapper, read_local_json
 
 class Scene:

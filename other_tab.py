@@ -80,7 +80,7 @@ class HelpTab(SpriteNode):
                 continue
             # Apply the font and style of the tag at line start
             elif line.startswith('`') and line.endswith('`'):
-                current_y = self.scroll_wrap(line[2:-1], current_y, color, self.font_monospace)
+                current_y = self.scroll_wrap(line[1:-1], current_y, color, self.font_monospace)
             elif line.startswith('(') and line.endswith(')'):
                 current_y = self.scroll_wrap(line[1:], current_y, font=self.font_small)
             else:

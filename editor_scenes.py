@@ -201,9 +201,8 @@ class Editor(Scene):
         self.inspector_tab.set_selected(self.selected_node, self.user_scene)
 
     def remove_selected_node(self):
-        if not self.play and getattr(self.user_scene, 'template', False):
-            template.nodes_to_template[self.selected_node.parent]['nodes'].remove(template.nodes_to_template[self.selected_node])
-            del template.nodes_to_template[self.selected_node]
+        if not self.play and getattr(self.user_scene, 'template', False) and self.selected_node in template.node_to_template:
+            del template.node_to_template[self.selected_node]
         self.selected_node.remove()
         self.clear_selected_node()
 
@@ -241,12 +240,14 @@ class Editor(Scene):
         else:
             new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
         if not self.play and getattr(self.user_scene, 'template', False):
-            template.register_node(self.user_scene, template.nodes_to_template[parent], new_node)
+            template.register_node(self.user_scene, template.node_to_template[parent], new_node)
 
     def save_scene_changes(self):
         if getattr(self.user_scene, 'template', False):
             scenes_name = template.read_local_json('project_config')['scenes_file']
             project_templates = template.read_local_json(scenes_name)
+            self.user_scene.template['nodes'] = []
+            template.get_tree_template(self.user_scene, self.user_scene.template['nodes'])
             project_templates[type(self.user_scene).__name__] = self.user_scene.template
             print('Saving template data:\n' + str(project_templates)[:32] + '...')
             template.write_local_json(scenes_name, project_templates)

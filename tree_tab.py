@@ -3,7 +3,7 @@ import engine.text as text
 from engine.spritesheet import tint_surface
 from engine.base_node import SpriteNode, NodeProperties, Anchor
 import engine.interface as interface
-from engine.template import NODE_CLASSES, INTERFACE_CLASSES
+from engine.template import NODE_CLASSES, INTERFACE_CLASSES, node_to_template
 
 from other_tab import TabHeading, string_color, DropdownEntry
 import weakref
@@ -39,6 +39,9 @@ class TreeTabGrid(interface.GridList):
         self.tree = tree
         self.linear_copy = self.tiles  # alias
         self.get_linear_copy(self.tree)
+
+        text_surf = text.render('generated ', color=(255, 255, 255), save_sprite=False)
+        self.g_text_offset = text_surf.get_width()
 
     def get_linear_copy(self, tree, depth=0):
         for node in tree.nodes:
@@ -120,16 +123,23 @@ class TreeTabGrid(interface.GridList):
             icon_image = self.icon_images[entry.reference_enabled][0]
 
         entry.image.fill(background)
-        entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing - 16))
+        entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing // 2 - 4))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        text.draw(entry.image, state, (entry.depth * 8 + 12, 0), color=self.style.get('color'))
+        text.draw(entry.image, state, (entry.depth * 8 + 12, 2), color=self.style.get('color'))
         node_name = type(entry.weak_reference()).__name__
         if entry.reference_visible == 0:
             name_color = interface.brighten_color(self.style.get('color'), -18)
         else:
             name_color = string_color(node_name)
-        text.draw(entry.image, node_name, (entry.depth * 8 + 32, 0), color=name_color)
+        text.draw(entry.image, node_name, (entry.depth * 8 + 32, 2), color=name_color)
+        if not entry.weak_reference() in node_to_template:
+            if entry == self.selected_entry or entry == self.hovered_entry:
+                text.draw(entry.image, 'generated +', (self.transform.width - self.g_text_offset - 15, 2),
+                          interface.brighten_color(background, 20), static=True)
+            else:
+                text.draw(entry.image, '+', (self.transform.width - 15, 2),
+                          interface.brighten_color(self.style.get('color'), -18), static=True)
         self.dirty = 1
 
     def on_resize(self):

@@ -44,7 +44,7 @@ class Editor(Scene):
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
         tab_style = interface.Style(background_editor=(20, 20, 24),
             background=(48, 48, 50), background_indent=(60, 60, 60),
-            tabsize=20, color=C_LIGHT, color_scroll=(100, 100, 100))
+            tabsize=20, color=C_LIGHT, color_scroll=(104, 104, 104))
         ui_style = interface.Style.from_kwargs(
             dict(style=tab_style, background=(30, 36, 36)))
         menu_bar_style = interface.Style.from_kwargs(
@@ -68,7 +68,7 @@ class Editor(Scene):
             self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
             self.draw_group, self.icon_sheet, ui_style, self.font_reading, style=tab_style)
         self.help_tab = HelpTab(NodeProperties(
-            self, scene_tab_x, 48, self.user_scene_rect.width, 300, enabled=False),
+            self, scene_tab_x, 48, self.user_scene_rect.width, self.user_scene_rect.height, enabled=False),
             self.draw_group, self.font_reading, style=tab_style)
 
         # Initialise the menu bar

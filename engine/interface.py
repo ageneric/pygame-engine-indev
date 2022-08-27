@@ -351,7 +351,7 @@ class GridList(SpriteNode):
         start = self.scroll_pixels // self.spacing
         end = (self.scroll_pixels + self.transform.height) // self.spacing
         # Adds 1 to end to include the partially visible next tile
-        return range(start, min(len(self.tiles), end + 1))
+        return range(int(start), min(len(self.tiles), int(end) + 1))
 
     def tile_rects(self, start_index=0):
         """Yields the local Rects for tiles starting from the start index.
@@ -409,7 +409,8 @@ class GridList(SpriteNode):
         return int((forward + self.scroll_pixels) // self.spacing)  # // can return float
 
     def position_to_index(self, position_x_y: (float, float)) -> int:
-        return (position_x_y[not self.horizontal] + self.scroll_pixels) // self.spacing
+        # // can return float
+        return int((position_x_y[not self.horizontal] + self.scroll_pixels) // self.spacing)
 
     def remove_tile_at_index(self, index):
         if self.dirty < 2:
@@ -479,7 +480,7 @@ class SpriteList(GridList):
 
 # TODO: horizontal scrolling
 class Scrollbar(SpriteNode):
-    event_handler = (pygame.MOUSEBUTTONDOWN,)
+    event_handler = (pygame.MOUSEBUTTONDOWN, )
 
     def __init__(self, node_props, group, scroll_speed=12, **kwargs):
         super().__init__(node_props, group)
@@ -490,15 +491,15 @@ class Scrollbar(SpriteNode):
         if not hasattr(self.parent, 'scroll_limits'):
             self.parent.scroll_limits = None
         self.scroll_by(0)  # calculate and set the height
+        self.state = State.idle
 
     def draw(self):
         if self._visible and self.dirty > 0:
-            self.transform.x = self.parent.transform.width - self.transform.width
-            self.image.fill(self.style.get('color_scroll'))
-            self.scroll_by(0)  # re-calculate and set the height
+            self.image.fill(self.style.get_by_state('color_scroll', self.state))
 
     def scroll_by(self, pixels):
         self.parent.scroll_pixels += pixels
+        self.transform.x = self.parent.transform.width - self.transform.width
 
         if self.parent.scroll_limits is not None:
             min_scroll, max_scroll = self.parent.scroll_limits
@@ -509,9 +510,17 @@ class Scrollbar(SpriteNode):
             start_bar = (self.parent.scroll_pixels - min_scroll) / full_height
             self.transform.y = start_bar * self.parent.transform.height
             self.transform.height = self.parent.transform.height ** 2 / full_height
+            # Indicate if the scrollbar is usable
+            if full_height > self.parent.transform.height:
+                self.state = State.idle
+            else:
+                self.state = State.locked
 
-        if self.parent.dirty < 2:
+        if self.parent.dirty < 2 and pixels != 0:
             self.parent.dirty = 1
+
+    def scroll_to(self, pixels):
+        self.scroll_by(pixels - self.parent.scroll_pixels)
 
     def event(self, event):
         # Collision check using parent rect for a larger scroll input area
@@ -520,9 +529,9 @@ class Scrollbar(SpriteNode):
                 self.scroll_by(-self.scroll_speed)
             elif event.button == 5:  # mouse scroll input
                 self.scroll_by(self.scroll_speed)
-            elif event.button == 1:  # left click input
-                if self.rect.x - 3 < event.pos[0]:  # allow close clicks
-                    if event.pos[1] > self.rect.centery:
-                        self.scroll_by(self.scroll_speed)
-                    else:
-                        self.scroll_by(-self.scroll_speed)
+            elif event.button == 1 and self.rect.x - 3 < event.pos[0]:  # left click input near bar
+                min_scroll, max_scroll = self.parent.scroll_limits
+                # move so that
+                full_height = max(1, self.parent.transform.height + max_scroll - min_scroll)
+                start_bar = event.pos[1] - self.transform.height // 2 - self.parent.rect.y
+                self.scroll_to(start_bar * full_height / self.parent.transform.height + min_scroll)

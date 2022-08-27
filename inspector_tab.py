@@ -172,6 +172,9 @@ class InspectorTab(SpriteNode):
                 self.group, str(indexes)[1:-1], 'groups', self.set_groups, allow_types=(list, tuple),
                 allow_characters='1234567890 [],', style=self.entry_style)
 
+        self.scroll_limits = 0, max(0, 216 + sum(1 for _ in self.readable_properties(self.selected_node)) * 14 - self.transform.height)
+        self.scrollbar.scroll_by(0)
+
     def resize_node_inspector(self):
         self.label_top.transform.width = self.transform.width
         half_widget_columns = self.half_widget_columns()
@@ -189,6 +192,8 @@ class InspectorTab(SpriteNode):
                     widget.transform.width = half_widget_width
                 if widget.bound in ('_layer', 'enabled', 'groups'):
                     widget.transform.x = full_widget_column
+                    if 175 < self.transform.width < 375:
+                        widget.transform.width = self.transform.width - 115
 
     def update_node_inspector(self):
         for widget in self.widget_holder.nodes:
@@ -257,13 +262,11 @@ class InspectorTab(SpriteNode):
                     text.draw(self.image, str(group), (25, 80 + i * 14), color=self.style.get('color_scroll'))
             else:
                 self.draw_node_inspector()
-                i = -1
                 for i, prop in enumerate(self.readable_properties(self.selected_node)):
                     text.draw(self.image, prop, (5, 210 + i * 14 - self.scroll_pixels),
                               color=self.style.get('color'))
                     text.draw(self.image, repr(getattr(self.selected_node, prop)),
                               (135, 210 + i * 14 - self.scroll_pixels))
-                self.scroll_limits = 0, max(0, 230 + i * 14 - self.transform.height)
 
     def draw_node_inspector(self):
         _widgets = (widget for widget in self.widget_holder.nodes)
@@ -305,7 +308,7 @@ class InspectorTab(SpriteNode):
         super().on_resize()
         if self.selected_node is not None:
             self.resize_node_inspector()
-        self.scrollbar.dirty = 1
+        self.scrollbar.scroll_by(0)
 
     @staticmethod
     def readable_properties(node):

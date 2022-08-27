@@ -42,36 +42,41 @@ class HelpTab(SpriteNode):
 
         TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
                    group, 'Help Documents', style=self.style)
-        Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
 
-        self.seek_to_page = 'Introduction'
+        self.seek_to_page = ''
         self.lines = []
         self.font_monospace = pygame.font.SysFont('Consolas, Courier New', 13)
         self.font_small = pygame.font.SysFont('Calibri', 12, italic=True)
         self.font_reading = font_reading
         self.scroll_pixels = 0
         self.scroll_limits = 0, 0
+        self._closed_page_scroll = {}
+        self._text_surfaces = {}
 
         button_hide_help = Button(NodeProperties(self, 119, -20, 50, 18), group, 'Close',
             self.parent.action_hide_help, style=self.style, background=(76, 36, 36))
 
         # Initialise buttons to access help pages
         x = 171
-        pairs = ('Node', 'Node'), ('Scene', 'Scene'), ('Text', 'Text'), ('Sprite', 'SpriteNode')
+        pairs = ('Nodes', 'Node'), ('Sprites', 'SpriteNode'), ('Scenes', 'Scene'), ('Text', 'Text')
         for name, key in pairs:
-            Button(NodeProperties(self, x, -20, 45, 18), group, name,
+            Button(NodeProperties(self, x, -20, 48, 18), group, name,
                    lambda page=key: self.parent.action_show_help(page), style=self.style)
-            x += 45 + 2
+            x += 48 + 2
 
     def draw(self):
         super().draw()
         if self._visible and self.dirty > 0:
             self.image.fill(self.style.get('background'))
-            current_y = self.draw_help_text()
-            self.scroll_limits = 0, max(0, current_y - self.transform.height)
+            for absolute_y, text_image in self._text_surfaces.items():
+                scrolled_y = absolute_y - self.scroll_pixels
+                if -20 < scrolled_y < self.transform.height:
+                    self.image.blit(text_image, (5, scrolled_y))
 
     def draw_help_text(self):
-        # Iterate through lines and draw them to the image top to bottom
+        self._text_surfaces.clear()
+        # Iterate through lines and render the text
         current_y = 4
         color = self.style.get('color')
         for line in self.lines:
@@ -82,12 +87,13 @@ class HelpTab(SpriteNode):
             elif line.startswith('`') and line.endswith('`'):
                 current_y = self.scroll_wrap(line[1:-1], current_y, color, self.font_monospace)
             elif line.startswith('(') and line.endswith(')'):
-                current_y = self.scroll_wrap(line[1:], current_y, font=self.font_small)
+                current_y = self.scroll_wrap(line[1:-1], current_y, font=self.font_small)
             else:
                 current_y = self.scroll_wrap(line, current_y, color, self.font_reading)
         return current_y
 
     def open_page(self, page):
+        self._closed_page_scroll[self.seek_to_page] = self.scroll_pixels
         self.seek_to_page = page
         try:
             with open(self.TEXT_PATH, 'r') as f:
@@ -104,10 +110,13 @@ class HelpTab(SpriteNode):
                 end = i
         self.lines = all_lines[start:end]
         self.dirty = 1
+        current_y = self.draw_help_text()
+        self.scroll_limits = 0, max(0, current_y - self.transform.height)
+        self.scrollbar.scroll_to(self._closed_page_scroll.get(page, 0))
 
     def scroll_wrap(self, message, current_y, color=text.COLOR_DEFAULT,
                     font=text.FONT_DEFAULT):
-        """Applies text wrapping to message and draws it at the current y."""
+        """Applies text wrapping to message then renders and caches each surface."""
         words = message.split()
         lines = ['']
         line_number = 0  # current index into lines
@@ -119,12 +128,10 @@ class HelpTab(SpriteNode):
                 line_number += 1
             else:
                 lines[line_number] += word + ' '
-
+        font_height = font.size('A')[1]
         for line in lines:
-            if -20 < current_y - self.scroll_pixels < self.transform.height:
-                text.draw(self.image, line, (5, current_y - self.scroll_pixels),
-                          color, font)
-            current_y += font.size('A')[1] + 1
+            self._text_surfaces[current_y] = text.render(line, font, color, save_sprite=False)
+            current_y += font_height + 1
         return current_y + 1
 
 class SceneTab(Node):

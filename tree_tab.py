@@ -149,7 +149,7 @@ class TreeTabGrid(interface.GridList):
                 tile.image = pygame.Surface(self.forward_to_rect(0).size)
                 self.entry_redraw(tile)
         if self.nodes:
-            self.nodes[0].dirty = 1  # reposition the scrollbar
+            self.nodes[0].scroll_by(0)  # reposition and resize the scrollbar
 
     def event(self, event):
         if self.rect.collidepoint(event.pos):

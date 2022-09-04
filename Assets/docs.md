@@ -130,26 +130,28 @@ Draws (blit) a text box to the surface at the (x, y) position specified.
 The width and height, if omitted, fit the text's size. If either is omitted, the text sprite is cached. Set middle = True to centre text.
 
 ## Groups
-Groups contain multiple sprites (SpriteNodes) and have a range of uses. Sprites can be in more than one group.
+Groups contain multiple sprites (SpriteNodes) and have a range of uses. By default, sprites are always in group 0 (the draw group) and can be added to any number of additional groups.
 
 A scene has a list of groups. This is displayed in the Inspector tab when nothing is selected as the scene groups table. To get this list, use:
 `self.groups`
 (where self is a Scene)
 
-Group 0 is the 'draw group', used for drawing all sprites. Sprites are automatically part of the 'draw group'. To get this group, use either one of:
+Group 0 is the draw group, used for drawing all sprites. To get this group, use either:
 `self.draw_group`
 `self.groups[0]`
 (where self is a Scene)
 
-You can create Group 1 and onwards to be used for collision checking (for example):
+You can create group 1 and onwards to be used for collision checking (for example):
 `self.groups.append(pygame.sprite.Group())`
 (where self is a Scene)
 (within the constructor of a Scene subclass)
 
+Add a sprite to a group by editing its Group IDs in the Inspector.
+
 Collision checking can be done between sprites and groups (for example):
 `pygame.sprite.spritecollideany(self, self.scene().groups[1])`
 (where self is a SpriteNode)
-(returns a single sprite from group 1 that collides with this sprite)
+This returns a single sprite from group 1 that collides with this sprite.
 
 You can check if a sprite is part of a group (for example):
 `self.scene().groups[1].has(self)`

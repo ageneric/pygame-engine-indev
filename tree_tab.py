@@ -246,7 +246,7 @@ class TreeTab(SpriteNode):
 
     def toggle_grid(self, checked):
         self.grid.enabled = checked
-        self.toggle.message = "Nodes v" if checked else "Nodes x"
+        self.toggle.message = 'Nodes v' if checked else 'Nodes x'
 
     def on_resize(self):
         super().on_resize()

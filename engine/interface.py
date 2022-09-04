@@ -492,6 +492,7 @@ class Scrollbar(SpriteNode):
             self.parent.scroll_limits = None
         self.scroll_by(0)  # calculate and set the height
         self.state = State.idle
+        self.CLICK_MARGIN_LEFT = 3
 
     def draw(self):
         if self._visible and self.dirty > 0:
@@ -529,9 +530,10 @@ class Scrollbar(SpriteNode):
                 self.scroll_by(-self.scroll_speed)
             elif event.button == 5:  # mouse scroll input
                 self.scroll_by(self.scroll_speed)
-            elif event.button == 1 and self.rect.x - 3 < event.pos[0]:  # left click input near bar
+            # Left click input on or slightly to the left of scrollbar
+            elif event.button == 1 and self.rect.x - self.CLICK_MARGIN_LEFT < event.pos[0]:
                 min_scroll, max_scroll = self.parent.scroll_limits
-                # move so that
+                # Scroll so scrollbar is centred across from click, within limits
                 full_height = max(1, self.parent.transform.height + max_scroll - min_scroll)
                 start_bar = event.pos[1] - self.transform.height // 2 - self.parent.rect.y
-                self.scroll_to(start_bar * full_height / self.parent.transform.height + min_scroll)
+                self.scroll_to(start_bar*full_height/self.parent.transform.height + min_scroll)

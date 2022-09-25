@@ -20,8 +20,6 @@ class Scene:
         self.background_color = None
         self.event_handlers = {}
 
-        self.template = None
-
     def update(self):
         for child in self.nodes:
             if child.enabled:
@@ -90,6 +88,8 @@ class Scene:
         self.groups.append(self.draw_group)
 
     def resize_draw_group(self):
+        if not isinstance(getattr(self, 'background_surf', None), pygame.Surface):
+            return
         self.background_surf = pygame.Surface(self.screen_size, 0, self.background_surf)
         if self.background_color is not None:
             self.background_surf.fill(self.background_color)

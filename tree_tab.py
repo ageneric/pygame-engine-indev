@@ -191,7 +191,7 @@ class TreeTab(SpriteNode):
 
         TabHeading(
             NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-            group, 'Node Tree', style=self.style)
+            group, 'Tree View', style=self.style)
         self.grid = TreeTabGrid(
             NodeProperties(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),
             group, tree, icon_sheet, color=self.style.get('color'),

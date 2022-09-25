@@ -15,22 +15,27 @@ def string_color(name: str):
     return color
 
 class TabHeading(SpriteNode):
-    def __init__(self, node_props, group, message, fit=True, **kwargs):
+    def __init__(self, node_props, group, message, resize_to_fit=True, **kwargs):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
         self.message = message
-        self.resize_to_fit = fit
+        self.resize_to_fit = resize_to_fit
+        self.transform.height = self.style.get('tabsize', 0)
+
+    def update(self):
+        if self.transform.width != self.parent.transform.width:
+            self.transform.width = self.parent.transform.width
 
     def draw(self):
         if self._visible and self.dirty > 0:
+            self.image.fill((0, 0, 0, 0))
             style_get = self.style.get
             width = None if self.resize_to_fit else self.transform.width
-            rect = text.box(self.image, self.message, (0, 0), height=style_get('tabsize'),
-                            width=width, font=style_get('font'), color=style_get('color'),
-                            box_color=brighten_color(style_get('background'), -3))
-            if self.resize_to_fit and self.transform.size != rect.size:
-                self.transform.size = rect.size  # resize to fit the text box
-                self.draw()  # redraw at the new size (one recursion only)
+            pygame.draw.rect(self.image, brighten_color(style_get('background'), -4),
+                             (0, self.transform.height - 5, self.transform.width, 5))
+            text.box(self.image, self.message, (0, 0), height=style_get('tabsize'),
+                     width=width, font=style_get('font'), color=style_get('color'),
+                     box_color=brighten_color(style_get('background'), -4))
 
 class HelpTab(SpriteNode):
     _layer = 0
@@ -40,8 +45,8 @@ class HelpTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-                   group, 'Help Documents', style=self.style)
+        TabHeading(NodeProperties(self, 0, 0, self.transform.width, self.style.get('tabsize'), anchor_y=Anchor.bottom),
+                   group, 'Help & Docs', resize_to_fit=False, style=self.style, background=(30, 40, 65))
         self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
 
         self.seek_to_page = ''
@@ -54,14 +59,14 @@ class HelpTab(SpriteNode):
         self._closed_page_scroll = {}
         self._text_surfaces = {}
 
-        button_hide_help = Button(NodeProperties(self, 119, -20, 50, 18), group, 'Close',
+        button_hide_help = Button(NodeProperties(self, 95, -20, 50, 20), group, 'Close',
             self.parent.action_hide_help, style=self.style, background=(76, 36, 36))
 
         # Initialise buttons to access help pages
-        x = 171
+        x = 148
         pairs = ('Nodes', 'Node'), ('Sprites', 'SpriteNode'), ('Scenes', 'Scene'), ('Text', 'Text')
         for name, key in pairs:
-            Button(NodeProperties(self, x, -20, 48, 18), group, name,
+            Button(NodeProperties(self, x, -20, 48, 20), group, name,
                    lambda page=key: self.parent.action_show_help(page), style=self.style)
             x += 48 + 2
 
@@ -140,8 +145,9 @@ class SceneTab(Node):
         self.user_scene = user_scene
         self.heading = TabHeading(NodeProperties(self, 0, 0, self.transform.width, style.get('tabsize'),
                                                  anchor_y=Anchor.bottom),
-                                  group_, 'Scene View', fit=False, style=style)
+                                  group_, 'Scene View', resize_to_fit=False, style=style)
         self.box = BorderBox(NodeProperties(self, 0, 0, 0, 0), group_)
+        self.debug_show_dirty = False
 
     def update(self):
         super().update()

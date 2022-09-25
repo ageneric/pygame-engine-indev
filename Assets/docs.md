@@ -2,7 +2,7 @@
 ## Introduction
 This is the help interface for Pygame Engine, a program used to build applications and games using Python and the Pygame library. If using scripting, you will code in an Object Oriented style.
 
-To build a graphical interface, start by creating an Instance in the Node Tree. An Instance is a copy of a class that may run scripts or have graphics.
+To build a graphical interface, start by creating an Instance in the Tree View. An Instance is a copy of a class that may run scripts or have graphics.
 
 To build games with Python scripting, start by defining a class in the Project Tab. A class is a blueprint for an entity used to create Instances.
 
@@ -13,7 +13,7 @@ The only way to make a new project is to duplicate the blank project folder, in 
 ## Scene
 Your project is contained in Scenes. Most projects use one Scene exactly.
 
-The open Scene contains all of the Nodes that currently exist. You can view this in the Tree Tab.
+The open Scene contains all of the Nodes that currently exist. You can view this in the Tree View.
 
 The Scene script is found in project_scenes.py. All Scene scripts are placed in this file.
 
@@ -45,7 +45,7 @@ To change the current Scene during play, use:
 ## Node
 The Node class is the base class of all engine classes. An Instance of the Node class is referred to as a Node.
 
-A Node represents an entity and contains all the data and scripts required for it to perform some purpose. A Node is part of the tree of Nodes. You can view this in the Tree Tab.
+A Node represents an entity and contains all the data and scripts required for it to perform some purpose. A Node is part of the tree of Nodes. You can view this in the Tree View.
 
 A Node has a single parent in the tree of Nodes, which is another Node or a Scene. To get the parent, use:
 `self.parent`
@@ -132,7 +132,7 @@ The width and height, if omitted, fit the text's size. If either is omitted, the
 ## Groups
 Groups contain multiple sprites (SpriteNodes) and have a range of uses. By default, sprites are always in group 0 (the draw group) and can be added to any number of additional groups.
 
-A scene has a list of groups. This is displayed in the Inspector tab when nothing is selected as the scene groups table. To get this list, use:
+A scene has a list of groups. This is displayed in the Attributes inspector when nothing is selected as the scene groups table. To get this list, use:
 `self.groups`
 (where self is a Scene)
 
@@ -146,7 +146,7 @@ You can create group 1 and onwards to be used for collision checking (for exampl
 (where self is a Scene)
 (within the constructor of a Scene subclass)
 
-Add a sprite to a group by editing its Group IDs in the Inspector.
+Add a sprite to a group by editing its Group IDs in the Attributes inspector.
 
 Collision checking can be done between sprites and groups (for example):
 `pygame.sprite.spritecollideany(self, self.scene().groups[1])`

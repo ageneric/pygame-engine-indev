@@ -9,6 +9,8 @@ from engine.spritesheet import tint_surface
 
 from other_tab import TabHeading, string_color
 
+INSPECTOR_NAME = 'Attributes'
+
 class LiteralEntry(TextEntry):
     NUMERIC = '1234567890.-x'
 
@@ -71,12 +73,13 @@ class InspectorTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-                   group, 'Inspector', style=self.style)
+        self.header = TabHeading(NodeProperties(
+            self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            group, INSPECTOR_NAME, style=self.style)
         self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
         group.change_layer(self.scrollbar, 2)
-        self.label_top = InspectorLabel(NodeProperties(self, 0, 0, self.transform.width,
-                                                       18, enabled=False), group)
+        self.label_top = InspectorLabel(NodeProperties(
+            self, 0, 0, self.transform.width, 18, enabled=False), group)
         self.scroll_pixels = 0
         self.scroll_limits = 0, 0
         self.group = group
@@ -113,6 +116,8 @@ class InspectorTab(SpriteNode):
 
     def generate_scene_inspector(self):
         self.label_top.enabled = False
+        self.header.message = INSPECTOR_NAME
+        self.header.dirty = 1
         self.dirty = 1
         self.scroll_pixels = 0
         self.scroll_limits = 0, 0
@@ -133,6 +138,8 @@ class InspectorTab(SpriteNode):
         self.label_top.enabled = True
         self.label_top.transform.width = self.transform.width
         self.label_top.dirty = 1
+        self.header.message = INSPECTOR_NAME + ' (Inspect)'
+        self.header.dirty = 1
         self.dirty = 1
 
         current_y = 36

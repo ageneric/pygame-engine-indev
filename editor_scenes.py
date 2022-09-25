@@ -34,7 +34,7 @@ class Editor(Scene):
 
         self.user_module = user_module
         self.user_path = user_path
-        self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
+        self.user_scene, self.user_scene_rect, self.user_surface, _ = self.create_user_scene()
 
         self.selected_node = None
         self.play = False
@@ -79,14 +79,15 @@ class Editor(Scene):
             NodeProperties(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_x=1),
             self.draw_group, '   Reload', self.action_reload, style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(0, 2, 1, 1), 8))
-        button_save = interface.Button(NodeProperties(self, TAB_PADDING, 2, 42, 22),
+        button_save = interface.Button(NodeProperties(self, TAB_PADDING, 2, 48, 22),
             self.draw_group, 'Save', self.save_scene_changes, style=menu_bar_style)
         self.button_show_help = interface.Button(NodeProperties(
             self, self.screen_size_x - TAB_PADDING, 2, 60, 22, anchor_x=1), self.draw_group,
             'Help', lambda: self.action_show_help('Introduction'), style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8))
 
-        self.recent_frames_ms = []  # used by frame speed counter
+        self._recent_frames_ms = []  # used by frame speed counter
+        self._recent_message = ''  # display error messages
 
     def resize(self):
         user_scene_width = self.user_scene_rect.width
@@ -116,12 +117,22 @@ class Editor(Scene):
     def update(self):
         super().update()
         if self.play:
-            self.user_scene.update()
+            try:
+                self.user_scene.update()
+            except Exception as _error:
+                print(f'Hit update() error:\n{str(type(_error).__name__)}: {_error}')
+                self._recent_message = 'update * ' + str(_error)
+                self.action_play(False, suppress_message=True)
 
     def draw(self):
         rects = super().draw()
 
-        user_rects = self.user_scene.draw()
+        try:
+            user_rects = self.user_scene.draw()
+        except Exception as _error:
+            self._recent_message = 'draw * ' + str(_error)
+            user_rects = []
+        
         if not self.help_opened:
             user_scene_top_left = self.user_scene_rect.topleft
             # Shift all user scene draw rectangles to align with blit destination
@@ -134,19 +145,25 @@ class Editor(Scene):
             rects.append(self.scene_tab.box.rect)
             if self.scene_tab.box.enabled:
                 self.screen.blit(self.scene_tab.box.image, self.scene_tab.box.rect.topleft)
+            if self.scene_tab.debug_show_dirty:
+                for rect in user_rects:
+                    pygame.draw.rect(self.screen, (min(255, rect.width + rect.height + 160), 60, 160), rect, 1)
+                    self.draw_group.repaint_rect(rect)
 
         # TODO: consider moving this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
-        self.recent_frames_ms.append(rawtime)
-        if len(self.recent_frames_ms) > 12:
-            self.recent_frames_ms.pop(0)
-            message = f'{sum(self.recent_frames_ms) * FPS // 12}ms / s ({rawtime}ms / frame)'
+        self._recent_frames_ms.append(rawtime)
+        if len(self._recent_frames_ms) > 12:
+            self._recent_frames_ms.pop(0)
+            message = f'{sum(self._recent_frames_ms) * FPS // 12}ms / s ({rawtime}ms / frame)'
         else:
             message = f'{rawtime}ms processing / frame'
 
-        rect = text.draw(self.screen, message, (54, 5), color=C_LIGHT_ISH, font=self.font_reading)
+        rect = text.draw(self.screen, message, (62, 5), color=C_LIGHT_ISH, font=self.font_reading)
         self.draw_group.repaint_rect(rect)
-
+        rect = text.draw(self.screen, self._recent_message, (self.toggle_play.transform.x + 68, 5),
+                         color=C_LIGHT_ISH, font=self.font_reading)
+        self.draw_group.repaint_rect(rect)
         return rects
 
     def handle_events(self, pygame_events):
@@ -166,6 +183,8 @@ class Editor(Scene):
                         self.translate_selected_node(event)
                     if event.key == pygame.K_DELETE:
                         self.remove_selected_node()
+                elif event.key == pygame.K_o and event.mod & pygame.KMOD_CTRL:
+                    self.scene_tab.debug_show_dirty = not self.scene_tab.debug_show_dirty
 
         if not self.play:
             return
@@ -177,10 +196,16 @@ class Editor(Scene):
         for event in pygame_events:
             if event.type in interface.MOUSE_EVENTS:
                 event.pos = (event.pos[0] - rect.x, event.pos[1] - rect.y)
-
-        self.user_scene.handle_events(pygame_events)
+        
+        try:
+            self.user_scene.handle_events(pygame_events)
+        except Exception as _error:
+            print(f'Hit event() or handle_events() error:\n{str(type(_error).__name__)}: {_error}')
+            self._recent_message = 'event * ' + str(_error)
+            self.action_play(False, suppress_message=True)
 
     def create_user_scene(self):
+        """Returns scene instance, scene rect, scene surface, error."""
         configuration = template.read_local_json('project_config')
         user_scene_width = configuration['display_width']
         user_scene_height = configuration['display_height']
@@ -190,7 +215,10 @@ class Editor(Scene):
         surface = pygame.Surface(scene_rect.size)
 
         user_scene_class = getattr(self.user_module, configuration['entry_scene'])
-        return user_scene_class(surface, self.clock), scene_rect, surface
+        try:
+            return user_scene_class(surface, self.clock), scene_rect, surface, None
+        except Exception as _error:
+            return Scene(surface, self.clock), scene_rect, surface, _error
 
     def set_selected_node(self, node):
         self.selected_node = node
@@ -214,13 +242,14 @@ class Editor(Scene):
             if not self.play and getattr(self.user_scene, 'template', False):
                 template.update_node(self.selected_node, axis)
 
-    def action_play(self, checked):
-        self.save_scene_changes()
-        self.action_reload()
+    def action_play(self, checked: bool, suppress_message=False):
+        if checked:
+            self.save_scene_changes()
+        self.action_reload(suppress_message)
         self.play = checked
         self.tree_tab.dirty = 1
 
-    def action_reload(self):
+    def action_reload(self, suppress_message=False):
         if self.play:
             self.toggle_play.checked = False
             self.toggle_play.dirty = 1
@@ -228,10 +257,15 @@ class Editor(Scene):
 
         self.selected_node = None
         reload(self.user_module)
-        self.user_scene, self.user_scene_rect, self.user_surface = self.create_user_scene()
-        self.tree_tab.grid.set_tree(self.user_scene)
-        self.inspector_tab.set_selected(self.selected_node, self.user_scene)
-        print('Engine reload successful')
+        self.user_scene, self.user_scene_rect, self.user_surface, error = self.create_user_scene()
+        if error is None:
+            self.tree_tab.grid.set_tree(self.user_scene)
+            self.inspector_tab.set_selected(self.selected_node, self.user_scene)
+            if not suppress_message:
+                self._recent_message = 'Reloaded scene'
+                print(self._recent_message)
+        else:
+            self._recent_message = 'load * ' + str(error)
 
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
@@ -249,8 +283,9 @@ class Editor(Scene):
             self.user_scene.template['nodes'] = []
             template.get_tree_template(self.user_scene, self.user_scene.template['nodes'])
             project_templates[type(self.user_scene).__name__] = self.user_scene.template
-            print('Saving template data:\n' + str(project_templates)[:32] + '...')
             template.write_local_json(scenes_name, project_templates)
+            self._recent_message = 'Template data saved: ' + str(project_templates)[:32] + '...'
+            print(self._recent_message)
 
     def add_scene_module(self, module_name: str):
         if getattr(self.user_scene, 'template', False):

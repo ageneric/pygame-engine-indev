@@ -16,27 +16,29 @@ class Anchor:
 class Transform:
     """A data structure that stores position and size information.
     Every node will hold an instance of this class as Node.transform."""
-    __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'node'
+    __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'transform_update'
 
-    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0, node=None):
+    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0,
+                 transform_update=None):
+        self.transform_update = None
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self._anchor_x = anchor_x
         self._anchor_y = anchor_y
-        self.node = node  # optional; observes changes to the transform
+        self.transform_update = transform_update  # observes changes to the transform
 
     def __repr__(self) -> str:
         return f'Transform({self.x}, {self.y}, {self.width}, {self.height}, {self.anchor_x}, {self.anchor_y})'
 
     def __str__(self) -> str:
         if self.anchor_x == 0 and self.anchor_y == 0:
-            return f'<Transform({round(self.x, 3)}, {round(self.y, 3)}), ' \
-                   f'{self.width}, {self.height}>'
+            return f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}), ' \
+                   f'{self.width}*{self.height}>'
         else:
-            return f'<Transform({round(self.x, 3)}, {round(self.y, 3)}), ' \
-                   f'{self.width}, {self.height}, {self.anchor_x}, {self.anchor_y}>'
+            return f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}), ' \
+                   f'{self.width}*{self.height}, {self.anchor_x}*{self.anchor_y}>'
 
     # Alternative constructor and conversions for use by user
     @classmethod
@@ -54,9 +56,8 @@ class Transform:
     # May alternatively be achieved using properties
     def __setattr__(self, name, val):
         object.__setattr__(self, name, val)
-        node = getattr(self, 'node', None)
-        if node is not None and name in ('x', 'y', 'width', 'height'):
-            node.transform_update(name)
+        if name in ('x', 'y', 'width', 'height') and self.transform_update is not None:
+            self.transform_update(name)
 
     # Getters and setters for transform properties
     @property
@@ -125,7 +126,7 @@ class Node:
             raise ValueError(f'No rect or is_origin attribute found on given parent (got {self.parent})'
                              + NODE_VALUE_WARNING + f' ({self})')
         self.parent.nodes.append(self)
-        self.transform = Transform(*node_props[1:7], node=self)
+        self.transform = Transform(*node_props[1:7], transform_update=self.transform_update)
         self._enabled = node_props[7]
         self.nodes = []
 
@@ -135,6 +136,9 @@ class Node:
         self.rect = self.transform.rect()
         if not hasattr(self.parent, 'is_origin'):
             self.rect.move_ip(self.parent.rect.x, self.parent.rect.y)
+        else:
+            # Optimise method call if at top-level - position is not relative to any node
+            self.global_rect = self.transform.rect
         self.nodes = []
 
     def update(self):
@@ -151,7 +155,7 @@ class Node:
                 if child.enabled:
                     child.draw()
 
-    def world_rect(self) -> pygame.Rect:
+    def global_rect(self) -> pygame.Rect:
         """Calculate the on-screen rectangle of a node. Cached as Node.rect."""
         rect = self.transform.rect()
         parent = self.parent
@@ -179,7 +183,7 @@ class Node:
     def transform_update(self, name):
         """Update the rect attribute (on-screen position/size) for this
         node and all child nodes when its transform is modified."""
-        if self.rect == self.world_rect():  # no changes to apply
+        if self.rect == self.global_rect():  # no changes to apply
             return
 
         if name in ('width', 'height'):
@@ -187,7 +191,7 @@ class Node:
 
         # Move the top-left of the rectangle if position changes or
         # the rectangle is resized about a point that is not the top-left
-        if name in ('x', 'y') or not self.transform.anchor_position == (0, 0):
+        if name in ('x', 'y') or not self.transform.anchor_position == (0, 0) and name in ('width', 'height'):
             x, y = self.transform.x, self.transform.y
             if not hasattr(self.parent, 'is_origin'):
                 x += self.parent.rect.x
@@ -215,7 +219,7 @@ class Node:
         """Fully delete a node and remove it from the tree."""
         if self in self.parent.nodes:
             self.parent.nodes.remove(self)
-        self.transform.node = None
+        self.transform.transform_update = None
         if hasattr(self, 'event_handler'):
             self.scene().remove_event_handler(self)
         for i in range(len(self.nodes)):
@@ -224,7 +228,8 @@ class Node:
 class SpriteNode(Node, pygame.sprite.DirtySprite):
     def __init__(self, node_props: NodeProperties, groups=None, image=None, fill_color=None):
         try:
-            if isinstance(groups, str): raise TypeError
+            if groups is None or isinstance(groups, str):
+                raise TypeError
             pygame.sprite.DirtySprite.__init__(self, groups)
         except TypeError:  # for example when groups = None (default)
             print(f'Engine warning: a SpriteNode was initialised with an incorrect group type (got {groups}).'

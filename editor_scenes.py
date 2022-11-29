@@ -1,6 +1,7 @@
 import pygame
 import sys
 from importlib import import_module, reload
+from traceback import print_tb
 from tkinter.filedialog import askdirectory
 from tkinter import Tk
 Tk().withdraw()  # do not show a root window
@@ -34,7 +35,9 @@ class Editor(Scene):
 
         self.user_module = user_module
         self.user_path = user_path
-        self.user_scene, self.user_scene_rect, self.user_surface, _ = self.create_user_scene()
+        self.user_scene, self.user_scene_rect, self.user_surface, _error = self.create_user_scene()
+        if _error is not None:
+            self.show_error(_error, 'load')
 
         self.selected_node = None
         self.play = False
@@ -120,8 +123,7 @@ class Editor(Scene):
             try:
                 self.user_scene.update()
             except Exception as _error:
-                print(f'Hit update() error:\n{str(type(_error).__name__)}: {_error}')
-                self._recent_message = 'update * ' + str(_error)
+                self.show_error(_error, 'update', '()')
                 self.action_play(False, suppress_message=True)
 
     def draw(self):
@@ -130,7 +132,7 @@ class Editor(Scene):
         try:
             user_rects = self.user_scene.draw()
         except Exception as _error:
-            self._recent_message = 'draw * ' + str(_error)
+            self._recent_message = 'draw !!! ' + str(_error)
             user_rects = []
         
         if not self.help_opened:
@@ -200,8 +202,7 @@ class Editor(Scene):
         try:
             self.user_scene.handle_events(pygame_events)
         except Exception as _error:
-            print(f'Hit event() or handle_events() error:\n{str(type(_error).__name__)}: {_error}')
-            self._recent_message = 'event * ' + str(_error)
+            self.show_error(_error, 'event', '() or Scene.handle_events()')
             self.action_play(False, suppress_message=True)
 
     def create_user_scene(self):
@@ -245,7 +246,8 @@ class Editor(Scene):
     def action_play(self, checked: bool, suppress_message=False):
         if checked:
             self.save_scene_changes()
-        self.action_reload(suppress_message)
+        else:
+            self.action_reload(suppress_message)
         self.play = checked
         self.tree_tab.dirty = 1
 
@@ -257,15 +259,20 @@ class Editor(Scene):
 
         self.selected_node = None
         reload(self.user_module)
-        self.user_scene, self.user_scene_rect, self.user_surface, error = self.create_user_scene()
-        if error is None:
+        self.user_scene, self.user_scene_rect, self.user_surface, _error = self.create_user_scene()
+        if _error is None:
             self.tree_tab.grid.set_tree(self.user_scene)
             self.inspector_tab.set_selected(self.selected_node, self.user_scene)
             if not suppress_message:
                 self._recent_message = 'Reloaded scene'
                 print(self._recent_message)
         else:
-            self._recent_message = 'load * ' + str(error)
+            self.show_error(_error, 'reload')
+
+    def show_error(self, error, context='', after_context=''):
+        self._recent_message = f'{context} !!! {error} (see console)'
+        print(f'Hit {str(type(error).__name__)} ({error}) in {context}{after_context}:')
+        print_tb(error.__traceback__)
 
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
@@ -273,7 +280,7 @@ class Editor(Scene):
             new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
         else:
             new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
-        if not self.play and getattr(self.user_scene, 'template', False):
+        if not self.play and getattr(self.user_scene, 'template', False) and parent in template.node_to_template:
             template.register_node(self.user_scene, template.node_to_template[parent], new_node)
 
     def save_scene_changes(self):

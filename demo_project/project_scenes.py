@@ -6,9 +6,9 @@ import engine.text as text
 from constants import *
 
 def grid_example_generator():
-    yield SpriteNode, dict(fill_color=C_RED)
-    yield SpriteNode, dict(fill_color=C_GREEN)
-    yield SpriteNode, dict(fill_color=C_BLUE)
+    yield SpriteNode, 10, dict(fill_color=C_RED)
+    yield SpriteNode, 20, dict(fill_color=C_GREEN)
+    yield SpriteNode, 30, dict(fill_color=C_BLUE)
 
 class ExampleScene(Scene):
     """Demo interface components and event handling."""
@@ -43,9 +43,9 @@ class ExampleScene(Scene):
         self.test_entry = interface.TextEntry(NodeProperties(self, 10, 125, 200, 20), self.draw_group,
                                               'Text value', demo_callback, style=blue_style)
 
-        self.test_grid = interface.SpriteList(NodeProperties(self.nodes[2], 0, 50, 200, 200),
-                                              self.draw_group, grid_example_generator(),
-                                              background=C_LIGHT)
+        self.test_grid = interface.SpriteListLayout(NodeProperties(self.nodes[2], 0, 50, 200, 200),
+                                                    self.draw_group, grid_example_generator(),
+                                                    background=C_LIGHT)
 
     def toggle_button(self):
         self.nodes[1].enabled = not self.nodes[1].enabled

@@ -2,7 +2,7 @@ import pygame
 
 import engine.text as text
 from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
-from engine.interface import Style, TextEntry, Button, GridList, \
+from engine.interface import Style, TextEntry, Button, UniformListLayout, \
     MOUSE_EVENTS, brighten_color, State, Scrollbar
 
 def string_color(name: str):
@@ -187,7 +187,7 @@ class BorderBox(SpriteNode):
                 pygame.draw.line(self.image, (255, 127, 127, 127), (0, 9 // 2), (9, 9 // 2))
                 pygame.draw.line(self.image, (127, 255, 127, 127), (9 // 2, 0), (9 // 2, 9))
 
-class ListSelector(GridList):
+class SelectorListLayout(UniformListLayout):
     event_handler = MOUSE_EVENTS
     _layer = 2
 
@@ -195,14 +195,17 @@ class ListSelector(GridList):
         super().__init__(node_props, group, horizontal, spacing, **kwargs)
         self.tiles = options
         self.hovered_index = None
-        self.transform.height = self.spacing * len(self.tiles)
+        self.max_height = node_props.height
+        self.transform.height = min(self.max_height, self.spacing * len(self.tiles))
+        scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        group.change_layer(scrollbar, SelectorListLayout._layer)
 
     def draw(self):
         SpriteNode.draw(self)
         if self._visible and self.dirty > 0:
-            self.transform.height = self.spacing * len(self.tiles)
+            self.transform.height = min(self.max_height, self.spacing * len(self.tiles))
             self.image.fill(self.style.get('background'))
-            indexes = range(len(self.tiles))
+            indexes = self.indexes_in_view()
             for i, position in zip(indexes, self.tile_positions(indexes.start)):
                 if i == self.hovered_index:
                     text.box(self.image, self.tiles[i], position, self.transform.width, self.spacing,
@@ -232,6 +235,10 @@ class ListSelector(GridList):
             self.hovered_index = None
             self.dirty = 1
 
+    @property
+    def scroll_limits(self):
+        return 0, max(0, len(self.tiles) * self.spacing - self.transform.height)
+
 class DropdownEntry(TextEntry):
     event_handler = MOUSE_EVENTS
 
@@ -239,10 +246,10 @@ class DropdownEntry(TextEntry):
                  enter_callback=None, **kwargs):
         super().__init__(node_props, group, default_text, enter_callback, cursor=' v', **kwargs)
         self.options = options
-        self.grid = ListSelector(NodeProperties(self, 0, self.transform.height,
-                                                self.transform.width, 0),
-                                 group, horizontal, self.transform.height, options, style=self.style,
-                                 background=brighten_color(self.style.get('background'), -5))
+        self.grid = SelectorListLayout(NodeProperties(self, 0, self.transform.height,
+                                                      self.transform.width, self.transform.height * 12),
+                                       group, horizontal, self.transform.height, options, style=self.style,
+                                       background=brighten_color(self.style.get('background'), -5))
         self.grid.enabled = False
 
     def event(self, event):

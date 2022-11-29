@@ -287,42 +287,47 @@ class TextEntry(SpriteNode):
         return self.style.get_by_state(base_name, self.state)
 
 
-class GridList(SpriteNode):
-    """A container for equally spaced tiles that draws them onto a buffer.
-    The default grid ignores the position/size attributes on each tile, if any,
-    instead drawing them in a horizontal (if horizontal=True) or vertical grid.
-    The draw() or update() methods of tiles are called if they exist, and the
-    image attribute is used to draw the tiles.
-    Add tiles by passing a generator to the grid, either on initialisation, or
-    calling GridList.prepare_grid(tile_generator). An equivalent is modifying
-    the tiles list, then calling GridList.prepare_grid().
+class ListLayout(SpriteNode):
+    """A container that displays a list of tiles in a horizontal row (if horizontal)
+    or vertical column, ignoring position attributes. The tiles are
+    spaced apart adjacently according to their transform.height (if horizontal)
+    or transform.width. The image attribute is used to draw the tiles.
+    Change the attributes used by overriding ListLayout.get_tile_spacing(tile)
+    or ListLayout.get_tile_image(tile) respectively.
+
+    The draw() or update() methods of tiles are called if they exist.
+    Add tiles by passing a generator or iterable to the grid, either on initialisation,
+    or by calling ListLayout.append_tiles(tiles). Or modify ListLayout.tiles,
+    then call ListLayout.prepare_flags() with no arguments.
     Takes the keyword argument background, or a style object, specifying the
     background color. This may be set to None for a transparent background.
     """
-    def __init__(self, node_props, groups, horizontal=False, spacing=20, tile_generator=None, **kwargs):
+    def __init__(self, node_props, groups, horizontal=False, tiles=None, **kwargs):
         super().__init__(node_props, groups)
         self.style = Style.from_kwargs(kwargs)
-        self.spacing = spacing
         self.scroll_pixels = 0
         self.tiles = []
-
         self.horizontal = horizontal
-        self.use_update_method = self.use_draw_method = False
-        self.prepare_grid(tile_generator)
+        self.use_update_method = self.use_draw_method = self.use_image = False
+        self.append_tiles(tiles)
 
-    def prepare_grid(self, tile_generator=None):
-        """Sets use_update_method and use_draw_method.
-        If a tile_generator is supplied, adds each of its items to the grid.
+    def append_tiles(self, tiles=None):
+        """Sets use_update_method and use_draw_method. If an iterable/generator
+        tiles is supplied, adds each of its elements to the list layout. Format:
         (class_name, *args, {**kwargs}) -> class_name(*args, **kwargs)
         """
-        if tile_generator is not None:
-            for (inst_class, *args, kwargs) in tile_generator:
+        if tiles is not None:
+            for (inst_class, *args, kwargs) in tiles:
                 self.tiles.append(inst_class(*args, **kwargs))
         if self.tiles:
-            # Check the first tile for methods and assume the rest are identical to it
-            t_node = self.tiles[0]
-            self.use_update_method = hasattr(t_node, 'update') and callable(t_node.update)
-            self.use_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
+            self.prepare_flags()
+
+    def prepare_flags(self):
+        # Check the first tile for methods and assume the rest are identical to it
+        t_node = self.tiles[0]
+        self.use_update_method = hasattr(t_node, 'update') and callable(t_node.update)
+        self.use_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
+        self.use_image = isinstance(self.get_tile_image(t_node), pygame.Surface)
 
     def update(self):
         super().update()
@@ -343,15 +348,124 @@ class GridList(SpriteNode):
                 for i in indexes:
                     self.tiles[i].draw()
             # Blit each of the tiles' images to the grid in place
-            for i, position in zip(indexes, self.tile_positions(indexes.start)):
-                if hasattr(self.tiles[i], 'image'):
-                    self.image.blit(self.tiles[i].image, position)
+            if self.use_image:
+                for i, position in zip(indexes, self.tile_positions(indexes.start)):
+                    self.image.blit(self.get_tile_image(self.tiles[i]), position)
+
+    def pop_tile(self, index):
+        if self.dirty < 2:
+            self.dirty = 1
+        return self.tiles.pop(index)
+
+    def clear_tiles(self):
+        if self.dirty < 2:
+            self.dirty = 1
+        self.tiles.clear()
 
     def indexes_in_view(self):
-        start = self.scroll_pixels // self.spacing
-        end = (self.scroll_pixels + self.transform.height) // self.spacing
+        """Returns a range() for the indexes of tiles visible when drawn."""
+        max_forward = self.transform.height if self.horizontal else self.transform.width
+        i = forward = 0
+        while forward < self.scroll_pixels:
+            forward += self.get_tile_spacing(self.tiles[i])
+            i += 1
+        start = i
+        while forward < max_forward + self.scroll_pixels and i < len(self.tiles):
+            forward += self.get_tile_spacing(self.tiles[i])
+            i += 1
         # Adds 1 to end to include the partially visible next tile
-        return range(int(start), min(len(self.tiles), int(end) + 1))
+        return range(start, min(i + 1, len(self.tiles)))
+
+    def get_tile_spacing(self, tile):
+        if self.horizontal:
+            return tile.transform.width
+        else:
+            return tile.transform.height
+
+    @staticmethod
+    def get_tile_image(tile):
+        return getattr(tile, 'image', None)
+
+    def tile_rects(self, start_index=0):
+        raise NotImplemented()
+
+    def tile_positions(self, start_index=0):
+        """Yields the positions for tiles starting from the start index."""
+        # Find the position of the tile at the start index
+        position = list(self.index_to_position(start_index))
+        index_x_or_y = not self.horizontal
+        # Loop yielding the next position on each iteration (sum each spacing)
+        for i in range(start_index, len(self.tiles)):
+            yield position
+            position[index_x_or_y] += self.get_tile_spacing(self.tiles[i])
+
+    def index_to_forward(self, index: int):
+        """A forward is the number of pixels along in the orientation direction."""
+        forward = -self.scroll_pixels
+        for i in range(min(index, len(self.tiles))):
+            forward += self.get_tile_spacing(self.tiles[i])
+        return forward
+
+    def forward_to_position(self, forward_pixels=0) -> tuple:
+        """A forward is the number of pixels along in the orientation direction."""
+        if self.horizontal:
+            return forward_pixels, 0
+        else:
+            return 0, forward_pixels
+
+    def index_to_position(self, index: int) -> tuple:
+        return self.forward_to_position(self.index_to_forward(index))
+
+    def forward_to_rect(self, forward_pixels=0, spacing=0):
+        """A forward is the number of pixels along in the orientation direction."""
+        if self.horizontal:
+            return pygame.Rect(forward_pixels, 0, spacing, self.transform.height)
+        else:
+            return pygame.Rect(0, forward_pixels, self.transform.width, spacing)
+
+    def index_to_rect(self, index: int):
+        return self.forward_to_rect(self.index_to_forward(index),
+                                    self.get_tile_spacing(self.tiles[index]))
+
+    def forward_to_index(self, forward: float) -> int:
+        """A forward is the number of pixels along in the orientation direction."""
+        forward += self.scroll_pixels
+        for i, tile in enumerate(self.tiles):
+            forward -= self.get_tile_spacing(tile)
+            if forward < 0:
+                return i
+        return len(self.tiles)
+
+    def position_to_index(self, position_x_y: (float, float)) -> int:
+        return self.forward_to_index(position_x_y[not self.horizontal])
+
+    @property
+    def scroll_limits(self):
+        return 0, self.index_to_forward(len(self.tiles)) + self.scroll_pixels
+
+class UniformListLayout(ListLayout):
+    """A container that draws a list of tiles, ignoring their position attributes,
+    in a horizontal row (if horizontal==True) or vertical column.
+    The spacing of tiles is fixed which makes this class more efficient.
+    The draw() or update() methods of tiles are called if they exist, and the
+    image attribute is used to draw the tiles.
+    Add tiles by passing a generator to the grid, either on initialisation, or by
+    calling UniformListLayout.prepare_flags(tile_generator). Alternatively, modify the
+    tiles list, then call UniformListLayout.prepare_flags() with no arguments.
+    Takes the keyword argument background, or a style object, specifying the
+    background color. This may be set to None for a transparent background.
+    """
+    def __init__(self, node_props, groups, horizontal=False, spacing=20, tiles=None, **kwargs):
+        super().__init__(node_props, groups, horizontal, tiles, **kwargs)
+        self.style = Style.from_kwargs(kwargs)
+        self.spacing = spacing
+
+    def indexes_in_view(self):
+        max_forward = self.transform.height if self.horizontal else self.transform.width
+        start = self.scroll_pixels // self.spacing
+        end = (self.scroll_pixels + max_forward) // self.spacing
+        # Adds 1 to end to include the partially visible next tile
+        return range(int(start), min(int(end) + 1, len(self.tiles)))
 
     def tile_rects(self, start_index=0):
         """Yields the local Rects for tiles starting from the start index.
@@ -381,102 +495,114 @@ class GridList(SpriteNode):
             yield position
             position[index_x_or_y] += self.spacing  # translate by one tile's spacing
 
+    def index_to_forward(self, index: int):
+        # This method is folded into other methods for efficiency.
+        return index * self.spacing - self.scroll_pixels
+
     def forward_to_position(self, forward_pixels=0) -> tuple:
-        """A forward is the number of pixels along a list
-        in the direction that it is orientated. Returns position."""
         if self.horizontal:
             return forward_pixels, 0
         else:
             return 0, forward_pixels
 
-    def index_to_position(self, index) -> tuple:
+    def index_to_position(self, index: int) -> tuple:
         return self.forward_to_position(index * self.spacing - self.scroll_pixels)
 
-    def forward_to_rect(self, forward_pixels=0):
-        """A forward is the number of pixels along a list
-        in the direction that it is orientated. Returns a Rect."""
-        if self.horizontal:
-            return pygame.Rect(forward_pixels, 0, self.spacing, self.transform.height)
-        else:
-            return pygame.Rect(0, forward_pixels, self.transform.width, self.spacing)
+    def forward_to_rect(self, forward_pixels=0, spacing=0):
+        return super().forward_to_rect(forward_pixels, spacing or self.spacing)
 
     def index_to_rect(self, index: int):
         return self.forward_to_rect(index * self.spacing - self.scroll_pixels)
 
     def forward_to_index(self, forward: float) -> int:
-        """A forward is the number of pixels along a list
-        in the direction that it is orientated. Returns an integer index."""
         return int((forward + self.scroll_pixels) // self.spacing)  # // can return float
 
     def position_to_index(self, position_x_y: (float, float)) -> int:
         # // can return float
         return int((position_x_y[not self.horizontal] + self.scroll_pixels) // self.spacing)
 
-    def remove_tile_at_index(self, index):
-        if self.dirty < 2:
-            self.dirty = 1
-        return self.tiles.pop(index)
-
     @property
     def scroll_limits(self):
-        return 0, max(0, (len(self.tiles) - 1)) * self.spacing
+        return 0, max(0, len(self.tiles) - 1) * self.spacing
 
-# TODO: consider that SpriteList is not very useful in its current state
-# A layout that considers each item's height, however, could be useful
-class SpriteList(GridList):
+class SpriteListLayout(ListLayout):
     """A container for adjacent SpriteNodes that draws them onto a buffer,
     in a horizontal row (if horizontal=True) or vertical column.
     The draw() or update() methods of nodes are called if they exist.
     Add nodes by passing a generator to the grid, either on initialisation, or
-      SpriteList.prepare_grid(tile_generator).
+      SpriteListLayout.prepare_flags(tile_generator).
     The nodes are assigned to its Group rather than the scene LayeredDirty.
     Takes the keyword argument background, or a style object, specifying the
     background color. This may be set to None for a transparent background.
     """
     is_origin = 'SpriteList'
 
-    def __init__(self, node_props, groups, tile_generator=None, horizontal=False, **kwargs):
-        self.grid_group = pygame.sprite.Group()
-        super().__init__(node_props, groups, horizontal, tile_generator=tile_generator, **kwargs)
-        assert not self.tiles  # catch accidental use of tiles list
-        self.tiles = self.nodes
+    def __init__(self, node_props, groups, tiles=None, horizontal=False, **kwargs):
+        self.tiles_group = pygame.sprite.LayeredDirty()
+        super().__init__(node_props, groups, horizontal, tiles=tiles, **kwargs)
+        if self.style.get('background') is not None:
+            self.image.fill(self.style.get('background'))
+        else:
+            self.image.fill(BACKGROUND_TRANSPARENT)
+        self.tiles_group.clear(self.image, self.image.copy())
 
-    def prepare_grid(self, tile_generator=None):
+    def append_tiles(self, tiles=None):
         """Sets use_update_method and use_draw_method.
         If a tile_generator is supplied, adds each of its items to the grid.
-        (class_name, *args, {**kwargs}) -> class_name(node_props, grid_group, *args, **kwargs)
+        (class_name, spacing, *args, {**kwargs})
+        -> class_name(node_props, tiles_group, *args, **kwargs)
         """
-        if tile_generator is not None:
-            for (inst_class, *args, kwargs), rect in zip(tile_generator, self.tile_rects()):
-                node_props = NodeProperties(self, *rect)
-                inst_class(node_props, self.grid_group, *args, **kwargs)
-        if self.nodes:
-            # Check the first tile for methods and assume the rest are identical to it
-            t_node = self.nodes[0]
-            self.use_update_method = hasattr(t_node, 'update') and callable(t_node.update)
-            self.use_draw_method = hasattr(t_node, 'draw') and callable(t_node.draw)
+        self.tiles = self.nodes
+        if tiles is not None:
+            if self.tiles:
+                if self.horizontal:
+                    forward = self.tiles[-1].transform.x
+                else:
+                    forward = self.tiles[-1].transform.y
+            else:
+                forward = 0
+            for inst_class, spacing, *args, kwargs in tiles:
+                node_props = NodeProperties(self, *self.forward_to_rect(forward, spacing))
+                inst_class(node_props, self.tiles_group, *args, **kwargs)
+                forward += spacing
+        if self.tiles:
+            self.prepare_flags()
+
+    def pop_tile(self, index):
+        if self.dirty < 2:
+            self.dirty = 1
+        tile = self.tiles[index]
+        tile.remove()
+        return tile
+
+    def clear_tiles(self):
+        if self.dirty < 2:
+            self.dirty = 1
+        while self.tiles:
+            self.tiles[0].remove()
 
     def draw(self):
-        if self._visible and self.dirty > 0:
-            if self.use_draw_method:
-                for node in self.nodes:
-                    node.draw()
-            if self.style.get('background') is not None:
-                self.image.fill(self.style.get('background'))
-            else:
-                self.image.fill(BACKGROUND_TRANSPARENT)
-            for node, correct_rect in zip(self.nodes, self.tile_rects()):
-                if node.transform.position != correct_rect.topleft:
-                    node.transform.position = correct_rect.topleft
-                if node.transform.size != correct_rect.size:
-                    node.transform.size = correct_rect.size
-            self.grid_group.draw(self.image)
+        if self._visible:
+            if self.dirty > 0 or self.tiles_group.draw(self.image):
+                self._position_tiles()
+                if self.dirty < 2:
+                    self.dirty = 1
+                if self.use_draw_method:
+                    for node in self.nodes:
+                        node.draw()
 
     # These method differs from the base method as it does not cascade to children
     def _set_rect_position(self, x, y):
         self.rect.x, self.rect.y = self.transform.rect_position(x, y)
         if self.dirty < 2:
             self.dirty = 1
+
+    def _position_tiles(self):
+        for node, correct_position in zip(self.nodes, self.tile_positions()):
+            if list(node.transform.position) != correct_position:
+                node.transform.position = correct_position
+                if self.dirty < 2:
+                    self.dirty = 1
 
 # TODO: horizontal scrolling
 class Scrollbar(SpriteNode):

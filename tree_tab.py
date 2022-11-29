@@ -19,7 +19,7 @@ class LinearEntry:
         self.image = pygame.Surface(image_size)
         self.depth = depth
 
-class TreeTabGrid(interface.GridList):
+class TreeTabGrid(interface.UniformListLayout):
     """This tab visualises the tree of nodes for the user scene.
     It maintains a linearised version of the tree as self.linear_copy."""
     event_handler = interface.MOUSE_EVENTS
@@ -39,6 +39,7 @@ class TreeTabGrid(interface.GridList):
         self.tree = tree
         self.linear_copy = self.tiles  # alias
         self.get_linear_copy(self.tree)
+        self.use_image = True
 
         text_surf = text.render('generated ', color=(255, 255, 255), save_sprite=False)
         self.g_text_offset = text_surf.get_width()

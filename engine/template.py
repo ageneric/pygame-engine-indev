@@ -10,7 +10,7 @@ from engine.base_node import NodeProperties
 import engine.interface
 
 NODE_CLASSES = ('Node', 'SpriteNode')
-INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'GridList', 'Scrollbar')
+INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'Scrollbar')
 DATA_NODE = ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled')
 JSON_CAN_SERIALISE_TYPES = (int, bool, float, str, list, tuple, dict)
 

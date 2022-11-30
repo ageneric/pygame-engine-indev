@@ -1,6 +1,6 @@
 import pygame
 from engine.base_scene import Scene
-from engine.base_node import NodeProperties, SpriteNode
+from engine.base_node import NodeProps, SpriteNode
 import engine.interface as interface
 import engine.text as text
 from constants import *
@@ -32,18 +32,18 @@ class ExampleScene(Scene):
         # Nodes can be created through code, though changes to
         # these arguments in the Inspector tab will not persist
         # Button 2
-        demo_button2 = interface.Button(NodeProperties(self.nodes[1], 45, 30, 250, 40),
+        demo_button2 = interface.Button(NodeProps(self.nodes[1], 45, 30, 250, 40),
                                         self.draw_group, 'Change my layer in the Inspector',
                                         demo_callback, style=blue_style)
 
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        toggle_visible_button = interface.Button(NodeProperties(self, 330, 63, 32, 32), self.draw_group,
+        toggle_visible_button = interface.Button(NodeProps(self, 330, 63, 32, 32), self.draw_group,
                                                  '+/-', self.toggle_button, image=image, color=C_DARK)
 
-        self.test_entry = interface.TextEntry(NodeProperties(self, 10, 125, 200, 20), self.draw_group,
+        self.test_entry = interface.TextEntry(NodeProps(self, 10, 125, 200, 20), self.draw_group,
                                               'Text value', demo_callback, style=blue_style)
 
-        self.test_grid = interface.SpriteListLayout(NodeProperties(self.nodes[2], 0, 50, 200, 200),
+        self.test_grid = interface.SpriteListLayout(NodeProps(self.nodes[2], 0, 50, 200, 200),
                                                     self.draw_group, grid_example_generator(),
                                                     background=C_LIGHT)
 

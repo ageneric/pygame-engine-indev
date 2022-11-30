@@ -1,7 +1,7 @@
 import pygame
 
 import engine.text as text
-from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
+from engine.base_node import Node, SpriteNode, NodeProps, Anchor
 from engine.interface import Style, TextEntry, Button, UniformListLayout, \
     MOUSE_EVENTS, brighten_color, State, Scrollbar
 
@@ -45,9 +45,9 @@ class HelpTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, self.style.get('tabsize'), anchor_y=Anchor.bottom),
+        TabHeading(NodeProps(self, 0, 0, self.transform.width, self.style.get('tabsize'), anchor_y=Anchor.bottom),
                    group, 'Help & Docs', resize_to_fit=False, style=self.style, background=(30, 40, 65))
-        self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        self.scrollbar = Scrollbar(NodeProps(self, width=2), group, style=self.style)
 
         self.seek_to_page = ''
         self.lines = []
@@ -59,14 +59,14 @@ class HelpTab(SpriteNode):
         self._closed_page_scroll = {}
         self._text_surfaces = {}
 
-        button_hide_help = Button(NodeProperties(self, 95, -20, 50, 20), group, 'Close',
-            self.parent.action_hide_help, style=self.style, background=(76, 36, 36))
+        button_hide_help = Button(NodeProps(self, 95, -20, 50, 20), group, 'Close',
+                                  self.parent.action_hide_help, style=self.style, background=(76, 36, 36))
 
         # Initialise buttons to access help pages
         x = 148
         pairs = ('Nodes', 'Node'), ('Sprites', 'SpriteNode'), ('Scenes', 'Scene'), ('Text', 'Text')
         for name, key in pairs:
-            Button(NodeProperties(self, x, -20, 48, 20), group, name,
+            Button(NodeProps(self, x, -20, 48, 20), group, name,
                    lambda page=key: self.parent.action_show_help(page), style=self.style)
             x += 48 + 2
 
@@ -143,10 +143,10 @@ class SceneTab(Node):
     def __init__(self, node_props, group_, overlay_group, user_scene, style):
         super().__init__(node_props)
         self.user_scene = user_scene
-        self.heading = TabHeading(NodeProperties(self, 0, 0, self.transform.width, style.get('tabsize'),
-                                                 anchor_y=Anchor.bottom),
+        self.heading = TabHeading(NodeProps(self, 0, 0, self.transform.width, style.get('tabsize'),
+                                            anchor_y=Anchor.bottom),
                                   group_, 'Scene View', resize_to_fit=False, style=style)
-        self.box = BorderBox(NodeProperties(self, 0, 0, 0, 0), group_)
+        self.box = BorderBox(NodeProps(self, 0, 0, 0, 0), group_)
         self.debug_show_dirty = False
 
     def update(self):
@@ -197,7 +197,7 @@ class SelectorListLayout(UniformListLayout):
         self.hovered_index = None
         self.max_height = node_props.height
         self.transform.height = min(self.max_height, self.spacing * len(self.tiles))
-        scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        scrollbar = Scrollbar(NodeProps(self, width=2), group, style=self.style)
         group.change_layer(scrollbar, SelectorListLayout._layer)
 
     def draw(self):
@@ -246,8 +246,8 @@ class DropdownEntry(TextEntry):
                  enter_callback=None, **kwargs):
         super().__init__(node_props, group, default_text, enter_callback, cursor=' v', **kwargs)
         self.options = options
-        self.grid = SelectorListLayout(NodeProperties(self, 0, self.transform.height,
-                                                      self.transform.width, self.transform.height * 12),
+        self.grid = SelectorListLayout(NodeProps(self, 0, self.transform.height,
+                                                 self.transform.width, self.transform.height * 12),
                                        group, horizontal, self.transform.height, options, style=self.style,
                                        background=brighten_color(self.style.get('background'), -5))
         self.grid.enabled = False

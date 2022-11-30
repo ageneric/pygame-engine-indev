@@ -13,7 +13,7 @@ The only way to make a new project is to duplicate the blank project folder, in 
 ## Scene
 Your project is contained in Scenes. Most projects use one Scene exactly.
 
-The open Scene contains all of the Nodes that currently exist. You can view this in the Tree View.
+The open Scene contains all Nodes that currently exist. You can view this in the Tree View.
 
 The Scene script is found in project_scenes.py. All Scene scripts are placed in this file.
 

@@ -1,12 +1,17 @@
 import pygame
-from collections import namedtuple
+from typing import NamedTuple
 
-NODE_VALUE_WARNING = ('\nThis may be because the "parent" in NodeProperties was missed.'
-                      + '\nCheck that the first element is a Node, Scene, or related type.')
-
-NodeProperties = namedtuple('NodeProperties', ['parent',
-                            'x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled'],
-                            defaults=[0, 0, 0, 0, 0.0, 0.0, True])
+class NodeProps(NamedTuple):
+    """NodeProps(parent, x=0, y=0, width=0, height=0, anchor_x=0, anchor_y=0, enabled=True)
+    The base node properties used to initialise a node. Has default values."""
+    parent: object
+    x: float = 0
+    y: float = 0
+    width: int = 0
+    height: int = 0
+    anchor_x: float = 0  # proportion of size between 0 (left) and 1 (right)
+    anchor_y: float = 0  # proportion of size between 0 (top) and 1 (bottom)
+    enabled: bool = True
 
 class Anchor:
     top = left = 0.0
@@ -14,35 +19,36 @@ class Anchor:
     bottom = right = 1.0
 
 class Transform:
-    """A data structure that stores position and size information.
+    """A data structure that stores position, size and relative anchor position.
     Every node will hold an instance of this class as Node.transform."""
     __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'transform_update'
 
-    def __init__(self, x: float, y: float, width=0, height=0, anchor_x=0.0, anchor_y=0.0,
-                 transform_update=None):
+    def __init__(self, x: float, y: float, width=0, height=0,
+                 anchor_x=Anchor.left, anchor_y=Anchor.top, transform_update=None):
         self.transform_update = None
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self._anchor_x = anchor_x
-        self._anchor_y = anchor_y
+        self._anchor_x = anchor_x  # proportion of size between 0 (left) and 1 (right)
+        self._anchor_y = anchor_y  # proportion of size between 0 (top) and 1 (bottom)
         self.transform_update = transform_update  # observes changes to the transform
 
     def __repr__(self) -> str:
-        return f'Transform({self.x}, {self.y}, {self.width}, {self.height}, {self.anchor_x}, {self.anchor_y})'
+        return (f'Transform({self.x}, {self.y}, {self.width}, {self.height}, '
+                f'{self.anchor_x}, {self.anchor_y})')
 
     def __str__(self) -> str:
         if self.anchor_x == 0 and self.anchor_y == 0:
-            return f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}), ' \
-                   f'{self.width}*{self.height}>'
+            return (f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
+                    f'{self.width}*{self.height}>')
         else:
-            return f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}), ' \
-                   f'{self.width}*{self.height}, {self.anchor_x}*{self.anchor_y}>'
+            return (f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
+                    f'{self.width}*{self.height}, anchored @ {self.anchor_x}*{self.anchor_y}>')
 
     # Alternative constructor and conversions for use by user
     @classmethod
-    def from_rect(cls, rect, anchor_x=0.0, anchor_y=0.0):
+    def from_rect(cls, rect, anchor_x: float = 0, anchor_y: float = 0):
         return cls(rect.x + rect.width * anchor_x, rect.y + rect.height * anchor_y,
                    rect.width, rect.height, anchor_x, anchor_y)
 
@@ -66,7 +72,7 @@ class Transform:
 
     @position.setter
     def position(self, position_x_y: (float, float)):
-        # Set the first attribute directly so only one transform_update is used
+        # Set the first attribute directly so only one _transform_update is used
         object.__setattr__(self, 'x', position_x_y[0])
         self.y = position_x_y[1]
 
@@ -76,7 +82,7 @@ class Transform:
 
     @size.setter
     def size(self, width_height: (int, int)):
-        # Set the first attribute directly so only one transform_update is used
+        # Set the first attribute directly so only one _transform_update is used
         object.__setattr__(self, 'width', width_height[0])
         self.height = width_height[1]
 
@@ -103,7 +109,7 @@ class Transform:
     def anchor_x(self, anchor_x: float):
         # Shift x value so that the rectangle stays in place
         new_x = self.x + (anchor_x - self._anchor_x) * self.width
-        # Set the x attribute directly, no transform_update is needed
+        # Set the x attribute directly, no _transform_update is needed
         object.__setattr__(self, 'x', new_x)
         self._anchor_x = anchor_x
 
@@ -111,22 +117,25 @@ class Transform:
     def anchor_y(self, anchor_y: float):
         # Shift y value so that the rectangle stays in place
         new_y = self.y + (anchor_y - self._anchor_y) * self.height
-        # Set the y attribute directly, no transform_update is needed
+        # Set the y attribute directly, no _transform_update is needed
         object.__setattr__(self, 'y', new_y)
         self._anchor_y = anchor_y
 
 class Node:
-    def __init__(self, node_props: NodeProperties):
+    VALUE_WARNING = ('\nThis may be because the "parent" in NodeProps was missed.'
+                     '\nCheck that the first element is a Node, Scene, or related type.')
+
+    def __init__(self, node_props: NodeProps):
         self.parent = node_props[0]
         # Check that the supplied node has the necessary attributes to be the parent
         if not hasattr(self.parent, 'nodes'):
-            raise ValueError(f'No nodes attribute found on given parent (got {self.parent})'
-                             + NODE_VALUE_WARNING + f' ({self})')
+            raise ValueError('No nodes attribute found on given parent '
+                             f'(got {self.parent}) {Node.VALUE_WARNING} ({self})')
         elif not (hasattr(self.parent, 'rect') or hasattr(self.parent, 'is_origin')):
-            raise ValueError(f'No rect or is_origin attribute found on given parent (got {self.parent})'
-                             + NODE_VALUE_WARNING + f' ({self})')
+            raise ValueError('No rect or is_origin attribute found on given parent '
+                             f'(got {self.parent}) {Node.VALUE_WARNING} ({self})')
         self.parent.nodes.append(self)
-        self.transform = Transform(*node_props[1:7], transform_update=self.transform_update)
+        self.transform = Transform(*node_props[1:7], transform_update=self._transform_update)
         self._enabled = node_props[7]
         self.nodes = []
 
@@ -180,7 +189,7 @@ class Node:
         self._enabled = set_enable
         self._set_visible(set_enable)
 
-    def transform_update(self, name):
+    def _transform_update(self, name):
         """Update the rect attribute (on-screen position/size) for this
         node and all child nodes when its transform is modified."""
         if self.rect == self.global_rect():  # no changes to apply
@@ -191,7 +200,8 @@ class Node:
 
         # Move the top-left of the rectangle if position changes or
         # the rectangle is resized about a point that is not the top-left
-        if name in ('x', 'y') or not self.transform.anchor_position == (0, 0) and name in ('width', 'height'):
+        if name in ('x', 'y') or (not self.transform.anchor_position == (0, 0)
+                                  and name in ('width', 'height')):
             x, y = self.transform.x, self.transform.y
             if not hasattr(self.parent, 'is_origin'):
                 x += self.parent.rect.x
@@ -226,14 +236,14 @@ class Node:
             self.nodes[0].remove()
 
 class SpriteNode(Node, pygame.sprite.DirtySprite):
-    def __init__(self, node_props: NodeProperties, groups=None, image=None, fill_color=None):
+    def __init__(self, node_props: NodeProps, groups=None, image=None, fill_color=None):
         try:
             if groups is None or isinstance(groups, str):
                 raise TypeError
             pygame.sprite.DirtySprite.__init__(self, groups)
         except TypeError:  # for example when groups = None (default)
-            print(f'Engine warning: a SpriteNode was initialised with an incorrect group type (got {groups}).'
-                  + '\nThis may be because the "group" parameter was missed.')
+            print('Engine warning: a SpriteNode was initialised with an incorrect group type '
+                  f'(got {groups}). \nThis may be because the "group" parameter was missed.')
             pygame.sprite.DirtySprite.__init__(self)
 
         Node.__init__(self, node_props)
@@ -284,8 +294,7 @@ class SpriteNode(Node, pygame.sprite.DirtySprite):
         Node.on_resize(self)
         self.image = pygame.Surface(self.transform.get_surface_size(),
                                     self.image.get_flags(), self.image)
-        # Repaint the fill colour
         if getattr(self, 'fill_color', None) is not None:
-            self.image.fill(self.fill_color)
+            self.image.fill(self.fill_color)  # repaint fill colour
         if self.dirty < 2:
             self.dirty = 1

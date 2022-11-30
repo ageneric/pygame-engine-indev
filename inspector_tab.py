@@ -2,7 +2,7 @@ import pygame
 import ast
 
 from engine import text as text
-from engine.base_node import Node, SpriteNode, NodeProperties, Anchor
+from engine.base_node import Node, SpriteNode, NodeProps, Anchor
 from engine.interface import Style, Scrollbar, State, TextEntry, Toggle, Button
 import engine.template as template
 from engine.spritesheet import tint_surface
@@ -73,12 +73,12 @@ class InspectorTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        self.header = TabHeading(NodeProperties(
+        self.header = TabHeading(NodeProps(
             self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
             group, INSPECTOR_NAME, style=self.style)
-        self.scrollbar = Scrollbar(NodeProperties(self, width=2), group, style=self.style)
+        self.scrollbar = Scrollbar(NodeProps(self, width=2), group, style=self.style)
         group.change_layer(self.scrollbar, 2)
-        self.label_top = InspectorLabel(NodeProperties(
+        self.label_top = InspectorLabel(NodeProps(
             self, 0, 0, self.transform.width, 18, enabled=False), group)
         self.scroll_pixels = 0
         self.scroll_limits = 0, 0
@@ -91,7 +91,7 @@ class InspectorTab(SpriteNode):
         self.selected_node = None
         self.user_scene = None
         self.toggle_enabled = None
-        self.widget_holder = Node(NodeProperties(self, 5, 0))
+        self.widget_holder = Node(NodeProps(self, 5, 0))
         self.set_selected(self.parent.selected_node, self.parent.user_scene)
 
     def update(self):
@@ -123,7 +123,7 @@ class InspectorTab(SpriteNode):
         self.scroll_limits = 0, 0
         question_icon = self.parent.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8)
         tint_surface(question_icon, self.style.get('color_scroll'))
-        Button(NodeProperties(
+        Button(NodeProps(
             self.widget_holder, 127, 54, 16, 16), self.group, image=question_icon,
             callback=lambda: self.parent.action_show_help('Groups'), style=self.ui_style)
 
@@ -151,7 +151,7 @@ class InspectorTab(SpriteNode):
             current_y += 18
             for attribute_pair, allow_types in transform_types:
                 for column in (0, 1):
-                    LiteralEntry(NodeProperties(
+                    LiteralEntry(NodeProps(
                         self.widget_holder, half_widget_columns[column], current_y, half_widget_width, 15),
                         self.group, '', attribute_pair[column], self.set_transform_attribute,
                         allow_characters=LiteralEntry.NUMERIC, allow_types=allow_types,
@@ -161,20 +161,20 @@ class InspectorTab(SpriteNode):
 
         enabled = getattr(self.selected_node, 'enabled', None)
         if enabled is not None:
-            self.toggle_enabled = Toggle(NodeProperties(
+            self.toggle_enabled = Toggle(NodeProps(
                 self.widget_holder, full_widget_column, current_y, half_widget_width, 15), self.group,
                 str(enabled), self.set_enabled_attribute, enabled, style=self.ui_style)
             self.toggle_enabled.bound = 'enabled'
             current_y += 20
 
         if isinstance(self.selected_node, pygame.sprite.DirtySprite):
-            LiteralEntry(NodeProperties(
+            LiteralEntry(NodeProps(
                 self.widget_holder, full_widget_column, current_y, half_widget_width, 15),
                 self.group, '', '_layer', self.set_layer, allow_types=(int,),
                 allow_characters=LiteralEntry.NUMERIC, style=self.entry_style)
             current_y += 20
             indexes = list(template.group_indexes(self.user_scene, self.selected_node))
-            LiteralEntry(NodeProperties(
+            LiteralEntry(NodeProps(
                 self.widget_holder, full_widget_column, current_y, half_widget_width, 15),
                 self.group, str(indexes)[1:-1], 'groups', self.set_groups, allow_types=(list, tuple),
                 allow_characters='1234567890 [],', style=self.entry_style)

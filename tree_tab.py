@@ -1,7 +1,7 @@
 import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
-from engine.base_node import SpriteNode, NodeProperties, Anchor
+from engine.base_node import SpriteNode, NodeProps, Anchor
 import engine.interface as interface
 from engine.template import NODE_CLASSES, INTERFACE_CLASSES, node_to_template
 
@@ -191,35 +191,35 @@ class TreeTab(SpriteNode):
         self.style = interface.Style.from_kwargs(kwargs)
 
         TabHeading(
-            NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            NodeProps(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
             group, 'Tree View', style=self.style)
         self.grid = TreeTabGrid(
-            NodeProperties(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),
+            NodeProps(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),
             group, tree, icon_sheet, color=self.style.get('color'),
             background=self.style.get('background_indent'))
         interface.Scrollbar(
-            NodeProperties(self.grid, width=2), group, style=self.style)
+            NodeProps(self.grid, width=2), group, style=self.style)
 
         class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
         if hasattr(self.grid.tree, 'template') and 'modules' in self.grid.tree.template:
             class_options.extend(self.grid.tree.template['modules'])
 
         self.toggle = interface.Toggle(
-            NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
+            NodeProps(self, 5, self.grid.transform.y - 20, 60, 20),
             group, 'Nodes v', style=ui_style, callback=self.toggle_grid, checked=self.grid.enabled)
         self.pick_class = DropdownEntry(
-            NodeProperties(self, 5, self.transform.height - 72, max(0, self.transform.width - 115), 18),
+            NodeProps(self, 5, self.transform.height - 72, max(0, self.transform.width - 115), 18),
             group, default_text=class_options[0], options=class_options, style=ui_style)
         self.button_add = interface.Button(
-            NodeProperties(self, self.transform.width - 105, self.transform.height - 72, 100, 18),
+            NodeProps(self, self.transform.width - 105, self.transform.height - 72, 100, 18),
             group, 'Same Level', style=ui_style, callback=self.action_add_node)
         self.button_add_child = interface.Button(
-            NodeProperties(self, self.transform.width - 105, self.transform.height - 52, 100, 18),
+            NodeProps(self, self.transform.width - 105, self.transform.height - 52, 100, 18),
             group, 'As Child', style=ui_style, callback=self.action_add_child_node)
         self.button_delete = interface.Button(
-            NodeProperties(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom, False),
+            NodeProps(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom, False),
             group, 'Delete', style=ui_style, callback=self.action_delete_node, background=(76, 36, 36))
-        self.button_clear = interface.Button(NodeProperties(
+        self.button_clear = interface.Button(NodeProps(
             self.grid, self.grid.transform.width - 65, 0, 100, 20, Anchor.right, Anchor.bottom, False),
             group, 'Clear Selected', self.action_clear, style=ui_style)
 

@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, KEYDOWN, KEYUP
 from math import sqrt
 
-from .base_node import SpriteNode, NodeProperties
+from .base_node import SpriteNode, NodeProps
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)
@@ -527,10 +527,11 @@ class UniformListLayout(ListLayout):
 
 class SpriteListLayout(ListLayout):
     """A container for adjacent SpriteNodes that draws them onto a buffer,
-    in a horizontal row (if horizontal=True) or vertical column.
+    in a horizontal row (if horizontal==True) or vertical column.
     The draw() or update() methods of nodes are called if they exist.
-    Add nodes by passing a generator to the grid, either on initialisation, or
-      SpriteListLayout.prepare_flags(tile_generator).
+    Add tiles by passing a generator or iterable to the grid, either on initialisation,
+    or by calling ListLayout.append_tiles(tiles). Or modify ListLayout.tiles,
+    then call ListLayout.prepare_flags() with no arguments.
     The nodes are assigned to its Group rather than the scene LayeredDirty.
     Takes the keyword argument background, or a style object, specifying the
     background color. This may be set to None for a transparent background.
@@ -562,7 +563,7 @@ class SpriteListLayout(ListLayout):
             else:
                 forward = 0
             for inst_class, spacing, *args, kwargs in tiles:
-                node_props = NodeProperties(self, *self.forward_to_rect(forward, spacing))
+                node_props = NodeProps(self, *self.forward_to_rect(forward, spacing))
                 inst_class(node_props, self.tiles_group, *args, **kwargs)
                 forward += spacing
         if self.tiles:

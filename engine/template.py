@@ -6,7 +6,7 @@ import inspect
 from pathlib import Path
 from importlib import import_module, reload
 import engine.base_node
-from engine.base_node import NodeProperties
+from engine.base_node import NodeProps
 import engine.interface
 
 NODE_CLASSES = ('Node', 'SpriteNode')
@@ -61,7 +61,7 @@ def load_nodes(scene, tree_template: list, parent):
 
 def instantiate(scene, template: dict, parent):
     inst_class = resolve_class(scene, template['class'])
-    node_props = NodeProperties(parent, *template['data_node'])
+    node_props = NodeProps(parent, *template['data_node'])
     # Get '*args' and '**kwargs' arguments; replace None with empty
     arguments = template.get('args', None)
     arguments = {} if arguments is None else arguments

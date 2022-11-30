@@ -5,7 +5,7 @@ from pathlib import Path
 
 import engine.text as text
 import engine.template as template
-from engine.base_node import SpriteNode, NodeProperties, Anchor, Node
+from engine.base_node import SpriteNode, NodeProps, Anchor, Node
 from engine.interface import Style, Button, State, TextEntry
 from engine.spritesheet import tint_surface
 
@@ -21,26 +21,26 @@ class ProjectFileTab(SpriteNode):
         self.font_reading = font_reading
         self.icons = [icon_sheet.load_image((i, 0, 1, 1), 8) for i in (0, 1)]
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+        TabHeading(NodeProps(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
                    group, 'Project Files', style=self.style)
-        self.class_menu = Node(NodeProperties(self, 0, 75, enabled=False))
+        self.class_menu = Node(NodeProps(self, 0, 75, enabled=False))
 
-        button_explorer = Button(NodeProperties(self, 5, 5, 120, 20), group,
+        button_explorer = Button(NodeProps(self, 5, 5, 120, 20), group,
                                  'Show in Explorer', self.open_nt_explorer, style=ui_style)
         if os_name != 'nt':
             button_explorer.state = State.locked
-        Button(NodeProperties(self, 5, 30, 120, 20), group,
+        Button(NodeProps(self, 5, 30, 120, 20), group,
                'Define Class', self.show_class_menu, style=ui_style)
-        Button(NodeProperties(self, 140, 5, 100, 20), group,
+        Button(NodeProps(self, 140, 5, 100, 20), group,
                'Edit Scenes', self.open_scenes, style=ui_style)
 
-        subclass_node = Button(NodeProperties(self.class_menu, 5, 0, 80, 20), group,
+        subclass_node = Button(NodeProps(self.class_menu, 5, 0, 80, 20), group,
                'Node', self.new_node_subclass, style=ui_style, background_hovered=(120, 60, 80))
-        subclass_sprite_node = Button(NodeProperties(self.class_menu, 90, 0, 100, 20), group,
+        subclass_sprite_node = Button(NodeProps(self.class_menu, 90, 0, 100, 20), group,
                'SpriteNode', self.new_sprite_node_subclass, style=ui_style, background_hovered=(60, 120, 80))
         self.buttons_subclass = [subclass_node, subclass_sprite_node]
         self.class_name = 'MyClass'
-        TextEntry(NodeProperties(self.class_menu, 5, 25, 130, 18), group, self.class_name,
+        TextEntry(NodeProps(self.class_menu, 5, 25, 130, 18), group, self.class_name,
                   cursor='|.py', edit_callback=self.edit_class_name, style=ui_style,
                   background=ui_style.get('background_indent'))
 

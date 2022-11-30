@@ -9,7 +9,7 @@ Tk().withdraw()  # do not show a root window
 import engine.text as text
 import engine.interface as interface
 from engine.base_scene import Scene
-from engine.base_node import NodeProperties, SpriteNode
+from engine.base_node import NodeProps, SpriteNode
 from engine.spritesheet import TileSpriteSheet
 import engine.template as template
 from constants import *
@@ -56,35 +56,35 @@ class Editor(Scene):
         self.icon_sheet = TileSpriteSheet('Assets/EditorIcons.png')
 
         # Initialise the tabs
-        self.tree_tab = TreeTab(NodeProperties(
+        self.tree_tab = TreeTab(NodeProps(
             self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING),
             self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
-        self.inspector_tab = InspectorTab(NodeProperties(
+        self.inspector_tab = InspectorTab(NodeProps(
             self, TAB_PADDING, 68 + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2,
             self.screen_size_y // 2 - 60 - TAB_PADDING * 2),
             self.draw_group, ui_style, style=tab_style)
-        self.scene_tab = SceneTab(NodeProperties(
+        self.scene_tab = SceneTab(NodeProps(
             self, scene_tab_x, 48, self.user_scene_rect.width, 0),
             self.draw_group, self.user_scene.draw_group, self.user_scene, style=tab_style)
-        self.project_file_tab = ProjectFileTab(NodeProperties(
+        self.project_file_tab = ProjectFileTab(NodeProps(
             self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
             self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
             self.draw_group, self.icon_sheet, ui_style, self.font_reading, style=tab_style)
-        self.help_tab = HelpTab(NodeProperties(
+        self.help_tab = HelpTab(NodeProps(
             self, scene_tab_x, 48, self.user_scene_rect.width, self.user_scene_rect.height, enabled=False),
             self.draw_group, self.font_reading, style=tab_style)
 
         # Initialise the menu bar
-        self.toggle_play = interface.Toggle(NodeProperties(self, scene_tab_x, 2, 60, 22),
-            self.draw_group, 'Play', self.action_play, checked=self.play, style=menu_bar_style,
-            background_checked=(48, 32, 108), image=self.icon_sheet.load_image(pygame.Rect(3, 1, 1, 1), 8))
+        self.toggle_play = interface.Toggle(NodeProps(self, scene_tab_x, 2, 60, 22),
+                                            self.draw_group, 'Play', self.action_play, checked=self.play, style=menu_bar_style,
+                                            background_checked=(48, 32, 108), image=self.icon_sheet.load_image(pygame.Rect(3, 1, 1, 1), 8))
         self.button_reload = interface.Button(
-            NodeProperties(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_x=1),
+            NodeProps(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_x=1),
             self.draw_group, '   Reload', self.action_reload, style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(0, 2, 1, 1), 8))
-        button_save = interface.Button(NodeProperties(self, TAB_PADDING, 2, 48, 22),
-            self.draw_group, 'Save', self.save_scene_changes, style=menu_bar_style)
-        self.button_show_help = interface.Button(NodeProperties(
+        button_save = interface.Button(NodeProps(self, TAB_PADDING, 2, 48, 22),
+                                       self.draw_group, 'Save', self.save_scene_changes, style=menu_bar_style)
+        self.button_show_help = interface.Button(NodeProps(
             self, self.screen_size_x - TAB_PADDING, 2, 60, 22, anchor_x=1), self.draw_group,
             'Help', lambda: self.action_show_help('Introduction'), style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8))
@@ -277,9 +277,9 @@ class Editor(Scene):
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
         if issubclass(inst_class, SpriteNode):
-            new_node = inst_class(NodeProperties(parent, 0, 0, 40, 40), self.user_scene.draw_group)
+            new_node = inst_class(NodeProps(parent, 0, 0, 40, 40), self.user_scene.draw_group)
         else:
-            new_node = inst_class(NodeProperties(parent, 0, 0, 0, 0))
+            new_node = inst_class(NodeProps(parent, 0, 0, 0, 0))
         if not self.play and getattr(self.user_scene, 'template', False) and parent in template.node_to_template:
             template.register_node(self.user_scene, template.node_to_template[parent], new_node)
 
@@ -319,9 +319,9 @@ class Select(Scene):
         self.create_draw_group((32, 32, 34))
         self.project_path = None
 
-        interface.Button(NodeProperties(self, 20, 60, 160, 100), self.draw_group, 'Open Existing Project',
+        interface.Button(NodeProps(self, 20, 60, 160, 100), self.draw_group, 'Open Existing Project',
                          self.select_project_path, color=C_LIGHT)
-        interface.Button(NodeProperties(self, 200, 60, 160, 100), self.draw_group, 'Open Demo Project',
+        interface.Button(NodeProps(self, 200, 60, 160, 100), self.draw_group, 'Open Demo Project',
                          self.demo_project, color=C_LIGHT, background=(18, 26, 20))
         self.font = pygame.font.SysFont('Calibri', 24, bold=True)
 

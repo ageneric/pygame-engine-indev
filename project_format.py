@@ -16,7 +16,7 @@ class {0}(Scene):
 """
 
 node_subclass_code = """import pygame
-from engine.base_node import Node, SpriteNode, NodeProperties
+from engine.base_node import Node, SpriteNode, NodeProps
 
 # Useful properties: self.parent, self.transform, self.enabled, self.rect, self.nodes
 # Useful methods: self.scene(), self.remove()

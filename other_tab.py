@@ -1,7 +1,7 @@
 import pygame
 
 import engine.text as text
-from engine.base_node import Node, SpriteNode, NodeProps, Anchor
+from engine.node import Node, SpriteNode, NodeProps, Anchor
 from engine.interface import Style, TextEntry, Button, UniformListLayout, \
     MOUSE_EVENTS, brighten_color, State, Scrollbar
 

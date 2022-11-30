@@ -8,8 +8,8 @@ Tk().withdraw()  # do not show a root window
 
 import engine.text as text
 import engine.interface as interface
-from engine.base_scene import Scene
-from engine.base_node import NodeProps, SpriteNode
+from engine.scene import Scene
+from engine.node import NodeProps, SpriteNode
 from engine.spritesheet import TileSpriteSheet
 import engine.template as template
 from constants import *
@@ -20,7 +20,7 @@ from tree_tab import TreeTab
 from inspector_tab import InspectorTab
 
 TAB_PADDING = 8  # spacing between tabs in the editor
-directions = {  # movement directions caused by pressing Shift + key
+DIRECTIONS = {  # movement directions caused by pressing Shift + key
     pygame.K_RIGHT: ('x', 1), pygame.K_LEFT: ('x', -1),
     pygame.K_DOWN: ('y', 1),  pygame.K_UP: ('y', -1)
 }
@@ -236,8 +236,8 @@ class Editor(Scene):
         self.clear_selected_node()
 
     def translate_selected_node(self, event):
-        if event.key in directions and hasattr(self.selected_node, 'transform'):
-            axis, delta = directions[event.key]
+        if event.key in DIRECTIONS and hasattr(self.selected_node, 'transform'):
+            axis, delta = DIRECTIONS[event.key]
             new_location = getattr(self.selected_node.transform, axis) + delta
             setattr(self.selected_node.transform, axis, new_location)
             if not self.play and getattr(self.user_scene, 'template', False):

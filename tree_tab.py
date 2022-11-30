@@ -1,7 +1,7 @@
 import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
-from engine.base_node import SpriteNode, NodeProps, Anchor
+from engine.node import SpriteNode, NodeProps, Anchor
 import engine.interface as interface
 from engine.template import NODE_CLASSES, INTERFACE_CLASSES, node_to_template
 

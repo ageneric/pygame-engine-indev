@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP, KEYDOWN, KEYUP
 from math import sqrt
 
-from .base_node import SpriteNode, NodeProps
+from .node import SpriteNode, NodeProps
 import engine.text as text
 
 MOUSE_EVENTS = (MOUSEMOTION, MOUSEBUTTONDOWN, MOUSEBUTTONUP)

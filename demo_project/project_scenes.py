@@ -1,6 +1,6 @@
 import pygame
-from engine.base_scene import Scene
-from engine.base_node import NodeProps, SpriteNode
+from engine.scene import Scene
+from engine.node import NodeProps, SpriteNode
 import engine.interface as interface
 import engine.text as text
 from constants import *

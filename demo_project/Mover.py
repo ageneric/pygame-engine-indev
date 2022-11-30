@@ -1,5 +1,5 @@
 import pygame
-from engine.base_node import Node
+from engine.node import Node
 
 class Mover(Node):
     # Allows the node to receive all events with a pygame.KEYDOWN type.

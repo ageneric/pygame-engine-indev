@@ -2,7 +2,7 @@ import pygame
 import ast
 
 from engine import text as text
-from engine.base_node import Node, SpriteNode, NodeProps, Anchor
+from engine.node import Node, SpriteNode, NodeProps, Anchor
 from engine.interface import Style, Scrollbar, State, TextEntry, Toggle, Button
 import engine.template as template
 from engine.spritesheet import tint_surface

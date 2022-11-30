@@ -1,5 +1,5 @@
 scene_template_code = """import pygame
-from engine.base_scene import Scene
+from engine.scene import Scene
 
 class {0}(Scene):
     def __init__(self, screen, clock):
@@ -16,7 +16,7 @@ class {0}(Scene):
 """
 
 node_subclass_code = """import pygame
-from engine.base_node import Node, SpriteNode, NodeProps
+from engine.node import Node, SpriteNode, NodeProps
 
 # Useful properties: self.parent, self.transform, self.enabled, self.rect, self.nodes
 # Useful methods: self.scene(), self.remove()

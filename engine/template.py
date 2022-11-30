@@ -5,8 +5,8 @@ import sys
 import inspect
 from pathlib import Path
 from importlib import import_module, reload
-import engine.base_node
-from engine.base_node import NodeProps
+import engine.node
+from engine.node import NodeProps
 import engine.interface
 
 NODE_CLASSES = ('Node', 'SpriteNode')
@@ -88,9 +88,9 @@ def instantiate(scene, template: dict, parent):
     return new_node
 
 def resolve_class(scene, name):
-    # Resolve the class either from a library module or user module
+    # Resolve the class either from an engine module or user module
     if name in NODE_CLASSES:
-        return getattr(engine.base_node, name)
+        return getattr(engine.node, name)
     elif name in INTERFACE_CLASSES:
         return getattr(engine.interface, name)
     elif name in scene.user_classes:
@@ -98,7 +98,7 @@ def resolve_class(scene, name):
     else:
         return NodeClassNotFound
 
-class NodeClassNotFound(engine.base_node.Node):
+class NodeClassNotFound(engine.node.Node):
     def __init__(self, node_props, *args, **kwargs):  # accept any arguments
         super().__init__(node_props)
 

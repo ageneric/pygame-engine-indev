@@ -1,6 +1,10 @@
 import pygame
 from typing import NamedTuple
 
+_NODE_VALUE_WARNING = (
+    '\nThis may be because the "parent" (argument 0) in NodeProps was missed.'
+    '\nCheck that the first element is a Node, Scene, or related type.')
+
 class NodeProps(NamedTuple):
     """NodeProps(parent, x=0, y=0, width=0, height=0, anchor_x=0, anchor_y=0, enabled=True)
     The base node properties used to initialise a node. Has default values."""
@@ -122,18 +126,15 @@ class Transform:
         self._anchor_y = anchor_y
 
 class Node:
-    VALUE_WARNING = ('\nThis may be because the "parent" in NodeProps was missed.'
-                     '\nCheck that the first element is a Node, Scene, or related type.')
-
     def __init__(self, node_props: NodeProps):
         self.parent = node_props[0]
         # Check that the supplied node has the necessary attributes to be the parent
         if not hasattr(self.parent, 'nodes'):
             raise ValueError('No nodes attribute found on given parent '
-                             f'(got {self.parent}) {Node.VALUE_WARNING} ({self})')
+                             f'(got {self.parent}) {_NODE_VALUE_WARNING} ({self})')
         elif not (hasattr(self.parent, 'rect') or hasattr(self.parent, 'is_origin')):
             raise ValueError('No rect or is_origin attribute found on given parent '
-                             f'(got {self.parent}) {Node.VALUE_WARNING} ({self})')
+                             f'(got {self.parent}) {_NODE_VALUE_WARNING} ({self})')
         self.parent.nodes.append(self)
         self.transform = Transform(*node_props[1:7], transform_update=self._transform_update)
         self._enabled = node_props[7]

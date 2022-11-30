@@ -1,5 +1,5 @@
 import pygame
-from engine.base_node import SpriteNode
+from engine.node import SpriteNode
 from engine import text
 from engine import interface
 

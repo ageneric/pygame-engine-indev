@@ -1,7 +1,7 @@
 """Tests the engine.base_node classes Transform, Node and SpriteNode."""
 
 from random import Random
-from engine.base_node import Transform, Node, SpriteNode, NodeProps
+from engine.node import Transform, Node, SpriteNode, NodeProps
 
 def random_transform_values(random):
     return (random.uniform(-999, 999), random.uniform(-999, 999),

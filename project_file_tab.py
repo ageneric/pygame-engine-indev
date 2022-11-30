@@ -5,7 +5,7 @@ from pathlib import Path
 
 import engine.text as text
 import engine.template as template
-from engine.base_node import SpriteNode, NodeProps, Anchor, Node
+from engine.node import SpriteNode, NodeProps, Anchor, Node
 from engine.interface import Style, Button, State, TextEntry
 from engine.spritesheet import tint_surface
 

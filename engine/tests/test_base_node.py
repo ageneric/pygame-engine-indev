@@ -1,7 +1,7 @@
 """Tests the engine.base_node classes Transform, Node and SpriteNode."""
 
 from random import Random
-from engine.base_node import Transform, Node, SpriteNode, NodeProperties
+from engine.node import Transform, Node, SpriteNode, NodeProps
 
 def random_transform_values(random):
     return (random.uniform(-999, 999), random.uniform(-999, 999),
@@ -15,26 +15,29 @@ def test_transform():
         Transform(0, 0),
         Transform(11, 2.2, 11, 11, 0.5, 0.5),
         Transform(-11, -2.2, -11, -11, -0.5, -0.5),
+        Transform(-11, -2, 111.0, 111.0, -1, -1)
     ]
     for i in range(128):
         test_transforms.append(Transform(*random_transform_values(random)))
 
     print("Test: A transform's 'positive size' has non-negative width and height.")
     for transform in test_transforms:
-        positive_size = transform.get_positive_size()
+        positive_size = transform.get_surface_size()
         assert positive_size[0] >= 0 and positive_size[1] >= 0
     print('Test: A transform may be converted to and from a Pygame Rect.'
-          + '\n  ... The position and size only stay precise to the nearest integer.')
+          + '\n  (The position and size stay precise to the nearest integer '
+          + 'excluding where size is negative or too large.)')
     for transform in test_transforms:
         rect_transform = Transform.from_rect(
             transform.rect(), transform.anchor_x, transform.anchor_y)
-        comparisons = (
-            (rect_transform.x, transform.x), (rect_transform.width, transform.width),
-            (rect_transform.y, transform.y), (rect_transform.height, transform.height)
-        )
-        for converted_property, original_property in comparisons:
-            assert abs(converted_property - original_property) < 1
-        assert rect_transform.anchor == transform.anchor
+        if 0 <= transform.width <= 8192 and 0 <= transform.height < 8192:
+            comparisons = (
+                (rect_transform.x, transform.x), (rect_transform.width, transform.width),
+                (rect_transform.y, transform.y), (rect_transform.height, transform.height)
+            )
+            for converted_property, original_property in comparisons:
+                assert abs(converted_property - original_property) < 1
+        assert rect_transform.anchor_position == transform.anchor_position
     print('Test: A transform may be modified by assigning to a property.')
     for transform in test_transforms:
         random_change_in_x = random.uniform(-999, 999)
@@ -48,9 +51,9 @@ def test_node():
     class TestScene:
         nodes, is_origin = [], 'Scene'
 
-    a_node = Node(NodeProperties(TestScene))
-    b_node = Node(NodeProperties(a_node))
-    Node(NodeProperties(b_node))
+    a_node = Node(NodeProps(TestScene))
+    b_node = Node(NodeProps(a_node))
+    Node(NodeProps(b_node))
 
     print("Test: Initialising a node adds it to its parent's nodes.")
     assert len(TestScene.nodes) == len(a_node.nodes) == len(b_node.nodes) == 1
@@ -58,8 +61,8 @@ def test_node():
     a_node.remove()
     assert len(TestScene.nodes) == len(a_node.nodes) == len(b_node.nodes) == 0
 
-    a_node = Node(NodeProperties(TestScene, *random_transform_values(random)))
-    b_node = Node(NodeProperties(a_node, *random_transform_values(random)))
+    a_node = Node(NodeProps(TestScene, *random_transform_values(random)))
+    b_node = Node(NodeProps(a_node, *random_transform_values(random)))
 
     print('Test: Node rectangle positions depend on and are relative to the parent.')
     for i in range(128):
@@ -68,7 +71,7 @@ def test_node():
         a_node.transform.x += random_change_in_x
         assert abs(b_node.rect.x - (b_node_x_before + random_change_in_x)) < 1
 
-    spr_node = SpriteNode(NodeProperties(a_node))
+    spr_node = SpriteNode(NodeProps(a_node))
 
     print('Test: A sprite node is dirty if it or any parent nodes move or resize.')
     spr_node.dirty = 0

@@ -3,12 +3,12 @@ Run this file to start the editor."""
 
 # pygame 2.0.1 (SDL 2.0.12, python 3.8.2)
 import pygame as pg
+import sys
 from importlib import import_module
 import editor_scenes
 from constants import *
 
-LAST_PROJECT_MODULE = "scenes"
-SCENE_NAME = "ExampleHandling"
+LAST_PROJECT_PATH = None
 
 print('1/3 Starting: pygame initialisation')
 clock = pg.time.Clock()
@@ -26,8 +26,11 @@ def main():
     pg.key.set_repeat(500, 50)
 
     print('3/3 Starting: main loop')
-    scenes = import_module(LAST_PROJECT_MODULE)
-    scene = editor_scenes.Editor(screen, clock, getattr(scenes, SCENE_NAME))
+    if LAST_PROJECT_PATH is None:
+        scene = editor_scenes.Select(screen, clock)
+    else:
+        user_scenes = editor_scenes.Select.set_project(LAST_PROJECT_PATH)
+        scene = editor_scenes.Editor(screen, clock, user_scenes, LAST_PROJECT_PATH)
 
     running = True
 

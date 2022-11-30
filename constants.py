@@ -1,6 +1,4 @@
 display_width, display_height = 960, 640
-# display_width, display_height = 200, 200
-display_centre_x, display_centre_y = display_width / 2, display_height / 2
 
 FPS = 60
 

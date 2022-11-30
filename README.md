@@ -2,6 +2,12 @@
 A basic graphical editor to prototype and develop Pygame projects in a fixed
 format.
 
+## Usage and Notice
+To open the editor, run run_editor.py.
+
+Please note that the demonstration project is run in editing mode, and your
+edits will be saved!
+
 ## engine (library)
 A library for using Pygame in an object-oriented style with scenes. It is
 designed to utilise the dirty rectangle method for drawing to the screen.

@@ -1,10 +1,11 @@
 import pygame
 import engine.text as text
 from engine.spritesheet import tint_surface
-from engine.base_node import SpriteNode, NodeProperties, Anchor
-from engine.interface import GridList, Scrollbar, Toggle, Style, brighten_color, MOUSE_EVENTS
+from engine.node import SpriteNode, NodeProps, Anchor
+import engine.interface as interface
+from engine.template import NODE_CLASSES, INTERFACE_CLASSES, node_to_template
 
-from other_tab import TabHeading, string_color
+from other_tab import TabHeading, string_color, DropdownEntry
 import weakref
 
 
@@ -18,10 +19,10 @@ class LinearEntry:
         self.image = pygame.Surface(image_size)
         self.depth = depth
 
-class TreeTabGrid(GridList):
+class TreeTabGrid(interface.UniformListLayout):
     """This tab visualises the tree of nodes for the user scene.
     It maintains a linearised version of the tree as self.linear_copy."""
-    event_handler = MOUSE_EVENTS
+    event_handler = interface.MOUSE_EVENTS
 
     def __init__(self, node_props, group, tree, icon_sheet, **kwargs):
         super().__init__(node_props, group, **kwargs)
@@ -31,13 +32,17 @@ class TreeTabGrid(GridList):
         self.icon_images = ((image_node, image_sprite_node),
                             (image_node.copy(), image_sprite_node.copy()))
         for icon in self.icon_images[0]:
-            tint_surface(icon, brighten_color(self.style.get('color'), -18))
+            tint_surface(icon, interface.brighten_color(self.style.get('color'), -18))
 
         self.selected_entry = None
         self.hovered_entry = None
         self.tree = tree
         self.linear_copy = self.tiles  # alias
         self.get_linear_copy(self.tree)
+        self.use_image = True
+
+        text_surf = text.render('generated ', color=(255, 255, 255), save_sprite=False)
+        self.g_text_offset = text_surf.get_width()
 
     def get_linear_copy(self, tree, depth=0):
         for node in tree.nodes:
@@ -106,28 +111,36 @@ class TreeTabGrid(GridList):
             self.dirty = 1
 
     def entry_redraw(self, entry):
+        background_name = 'background'
         if entry == self.selected_entry:
-            background = self.style.get('background_selected')
+            background_name = 'background_selected'
         elif entry == self.hovered_entry:
-            background = self.style.get('background_hovered')
-        else:
-            background = self.style.get('background')
+            background_name = 'background_hovered'
+        background = self.style.get(background_name)
+
         if entry.reference_visible >= 0:
             icon_image = self.icon_images[entry.reference_enabled][1]
         else:
             icon_image = self.icon_images[entry.reference_enabled][0]
 
         entry.image.fill(background)
-        entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing - 16))
+        entry.image.blit(icon_image, (entry.depth*8 + 2, self.spacing // 2 - 4))
 
         state = ('e' if entry.reference_enabled else '') + ('v' if entry.reference_visible == 1 else '')
-        text.draw(entry.image, state, (entry.depth * 8 + 12, 0), color=self.style.get('color'))
+        text.draw(entry.image, state, (entry.depth * 8 + 12, 2), color=self.style.get('color'))
         node_name = type(entry.weak_reference()).__name__
         if entry.reference_visible == 0:
-            name_color = brighten_color(self.style.get('color'), -18)
+            name_color = interface.brighten_color(self.style.get('color'), -18)
         else:
             name_color = string_color(node_name)
-        text.draw(entry.image, node_name, (entry.depth * 8 + 32, 0), color=name_color)
+        text.draw(entry.image, node_name, (entry.depth * 8 + 32, 2), color=name_color)
+        if not entry.weak_reference() in node_to_template:
+            if entry == self.selected_entry or entry == self.hovered_entry:
+                text.draw(entry.image, 'generated +', (self.transform.width - self.g_text_offset - 15, 2),
+                          interface.brighten_color(background, 20), static=True)
+            else:
+                text.draw(entry.image, '+', (self.transform.width - 15, 2),
+                          interface.brighten_color(self.style.get('color'), -18), static=True)
         self.dirty = 1
 
     def on_resize(self):
@@ -137,7 +150,7 @@ class TreeTabGrid(GridList):
                 tile.image = pygame.Surface(self.forward_to_rect(0).size)
                 self.entry_redraw(tile)
         if self.nodes:
-            self.nodes[0].dirty = 1  # reposition the scrollbar
+            self.nodes[0].scroll_by(0)  # reposition and resize the scrollbar
 
     def event(self, event):
         if self.rect.collidepoint(event.pos):
@@ -145,68 +158,129 @@ class TreeTabGrid(GridList):
                                             event.pos[1] - self.rect.y))
             if 0 <= index < len(self.tiles):
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.set_and_redraw_entry(self.tiles[index], 'selected_entry')
+                    self.replace_entry(self.tiles[index], 'selected_entry')
                     self.parent.parent.set_selected_node(self.selected_entry.weak_reference())
                 elif event.type == pygame.MOUSEMOTION:
-                    self.set_and_redraw_entry(self.tiles[index], 'hovered_entry')
-        else:
-            if event.type == pygame.MOUSEMOTION:
-                previous_entry = self.hovered_entry
-                if self.hovered_entry is not None:
-                    self.hovered_entry = None
-                    self.entry_redraw(previous_entry)
+                    self.replace_entry(self.tiles[index], 'hovered_entry')
+        elif event.type == pygame.MOUSEMOTION:
+            self.replace_entry(None, 'hovered_entry')
 
-    def set_and_redraw_entry(self, new_entry, attribute_name):
+    def replace_entry(self, new_entry, attribute_name):
         previous_entry = getattr(self, attribute_name, None)
-        if new_entry is previous_entry:  # skip if the entry does not changed
+        if new_entry is previous_entry:  # skip if the entry does not change
             return
-        setattr(self, attribute_name, new_entry)  # reassigned here (read by entry_redraw)
+        setattr(self, attribute_name, new_entry)  # reassign entry (read by entry_redraw)
         if previous_entry is not None:
             self.entry_redraw(previous_entry)  # previous entry un-highlighted
-        self.entry_redraw(new_entry)  # newly stored entry is highlighted
+        if new_entry is not None:
+            self.entry_redraw(new_entry)  # newly stored entry is highlighted
+        return new_entry
 
-    def clear(self, tree):
+    def set_tree(self, tree):
         self.tree = tree
         self.linear_copy.clear()
         self.get_linear_copy(self.tree)
-
+        self.dirty = 1
 
 class TreeTab(SpriteNode):
     _layer = 0
 
-    def __init__(self, node_props: NodeProperties, group, tree, icon_sheet, **kwargs):
+    def __init__(self, node_props, group, tree, icon_sheet,
+                 ui_style, **kwargs):
         super().__init__(node_props, group)
-        self.style = Style.from_kwargs(kwargs)
+        self.style = interface.Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProperties(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
-                   group, 'Node Tree', style=self.style)
+        TabHeading(
+            NodeProps(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            group, 'Tree View', style=self.style)
+        self.grid = TreeTabGrid(
+            NodeProps(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),
+            group, tree, icon_sheet, color=self.style.get('color'),
+            background=self.style.get('background_indent'))
+        interface.Scrollbar(
+            NodeProps(self.grid, width=2), group, style=self.style)
 
-        self.grid = TreeTabGrid(NodeProperties(self, 5, 25, max(0, self.transform.width - 10),
-                                               max(100, self.transform.height - 100)),
-                                group, tree, icon_sheet, color=self.style.get('color'),
-                                background=self.style.get('background_indent'))
+        class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
+        if hasattr(self.grid.tree, 'template') and 'modules' in self.grid.tree.template:
+            class_options.extend(self.grid.tree.template['modules'])
 
-        Scrollbar(NodeProperties(self.grid, width=2), group,
-                  style=self.style)
+        self.toggle = interface.Toggle(
+            NodeProps(self, 5, self.grid.transform.y - 20, 60, 20),
+            group, 'Nodes v', style=ui_style, callback=self.toggle_grid, checked=self.grid.enabled)
+        self.pick_class = DropdownEntry(
+            NodeProps(self, 5, self.transform.height - 72, max(0, self.transform.width - 115), 18),
+            group, default_text=class_options[0], options=class_options, style=ui_style)
+        self.button_add = interface.Button(
+            NodeProps(self, self.transform.width - 105, self.transform.height - 72, 100, 18),
+            group, 'Same Level', style=ui_style, callback=self.action_add_node)
+        self.button_add_child = interface.Button(
+            NodeProps(self, self.transform.width - 105, self.transform.height - 52, 100, 18),
+            group, 'As Child', style=ui_style, callback=self.action_add_child_node)
+        self.button_delete = interface.Button(
+            NodeProps(self.grid, self.grid.transform.width, 0, 60, 20, Anchor.right, Anchor.bottom, False),
+            group, 'Delete', style=ui_style, callback=self.action_delete_node, background=(76, 36, 36))
+        self.button_clear = interface.Button(NodeProps(
+            self.grid, self.grid.transform.width - 65, 0, 100, 20, Anchor.right, Anchor.bottom, False),
+            group, 'Clear Selected', self.action_clear, style=ui_style)
 
-        self.toggle = Toggle(NodeProperties(self, 5, self.grid.transform.y - 20, 60, 20),
-                             group, "Nodes v", background=brighten_color(self.style.get('background'), -5),
-                             style=self.style, callback=self.toggle_grid, checked=self.grid.enabled)
+    def update(self):
+        super().update()
+        if self.parent.selected_node is None and self.button_add_child.state != interface.State.locked:
+            self.button_add_child.state = interface.State.locked
+            self.button_add_child.dirty = 1
+            self.button_delete.enabled = self.button_clear.enabled = False
+        elif self.parent.selected_node and self.button_add_child.state == interface.State.locked:
+            self.button_add_child.state = interface.State.idle
+            self.button_add_child.dirty = 1
+            self.button_delete.enabled = self.button_clear.enabled = True
 
     def draw(self):
         super().draw()
 
         if self._visible and self.dirty > 0:
             self.image.fill(self.style.get('background'))
+            text.draw(self.image, 'Create Instance', (5, self.transform.height - 89),
+                      color=self.style.get('color'))
+            if self.parent.play:
+                text.draw(self.image, 'Changes are not saved in Play mode.',
+                          (5, self.transform.height - 35))
 
     def toggle_grid(self, checked):
         self.grid.enabled = checked
-        self.toggle.message = "Nodes v" if checked else "Nodes x"
+        self.toggle.message = 'Nodes v' if checked else 'Nodes x'
 
     def on_resize(self):
         super().on_resize()
         self.grid.transform.size = (max(0, self.transform.width - 10),
-                                    max(100, self.transform.height - 100))
+                                    max(0, self.transform.height - 120))
+        self.pick_class.transform.width = max(0, self.transform.width - 115)
+        self.pick_class.grid.transform.width = self.pick_class.transform.width
+        self.pick_class.transform.y = self.transform.height - 72
+        for i, button in enumerate((self.button_add, self.button_add_child)):
+            button.transform.position = (self.transform.width - 105,
+                                         self.transform.height - 72 + 20 * i)
+        self.button_delete.transform.x = self.grid.transform.width
+        self.button_clear.transform.x = self.grid.transform.width - 65
 
-    def clear(self, tree):
-        self.grid.clear(tree)
+    def action_clear(self):
+        self.grid.replace_entry(None, 'selected_entry')
+        self.parent.clear_selected_node()
+
+    def set_pick_class_options(self, user_class_options):
+        class_options = list(NODE_CLASSES + INTERFACE_CLASSES)
+        class_options.extend(user_class_options)
+        self.pick_class.options = class_options
+
+    def action_add_node(self):
+        if self.parent.selected_node is not None:
+            self.parent.add_node(self.pick_class.text, self.parent.selected_node.parent)
+        else:
+            self.parent.add_node(self.pick_class.text, self.grid.tree)
+
+    def action_add_child_node(self):
+        if self.parent.selected_node is not None:
+            self.parent.add_node(self.pick_class.text, self.parent.selected_node)
+
+    def action_delete_node(self):
+        if self.parent.selected_node is not None:
+            self.parent.remove_selected_node()

@@ -40,19 +40,20 @@ class Transform:
 
     def __repr__(self) -> str:
         return (f'Transform({self.x}, {self.y}, {self.width}, {self.height}, '
-                f'{self.anchor_x}, {self.anchor_y})')
+                f'{self._anchor_x}, {self._anchor_y})')
 
     def __str__(self) -> str:
-        if self.anchor_x == 0 and self.anchor_y == 0:
-            return (f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
-                    f'{self.width}*{self.height}>')
+        position_size_text = (f'Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
+                              f'{self.width}*{self.height}')
+        if self._anchor_x == 0 and self._anchor_y == 0:
+            return f'<{position_size_text}>'
         else:
-            return (f'<Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
-                    f'{self.width}*{self.height}, anchored @ {self.anchor_x}*{self.anchor_y}>')
+            return f'<{position_size_text} anchored at ({self._anchor_x}, {self._anchor_y})>'
 
-    # Alternative constructor and conversions for use by user
+    # Alternative constructor and conversions for use by use
     @classmethod
     def from_rect(cls, rect, anchor_x: float = 0, anchor_y: float = 0):
+        """Instantiate a Transform from a Pygame Rect (and optionally an anchor)."""
         return cls(rect.x + rect.width * anchor_x, rect.y + rect.height * anchor_y,
                    rect.width, rect.height, anchor_x, anchor_y)
 
@@ -124,6 +125,7 @@ class Transform:
         # Set the y attribute directly, no _transform_update is needed
         object.__setattr__(self, 'y', new_y)
         self._anchor_y = anchor_y
+
 
 class Node:
     def __init__(self, node_props: NodeProps):
@@ -235,6 +237,27 @@ class Node:
             self.scene().remove_event_handler(self)
         for i in range(len(self.nodes)):
             self.nodes[0].remove()
+
+    def order_before(self, before_node):
+        """Move this node before a sibling node in the parent's node list
+        using the list.insert() method. This method will not change the parent."""
+        parent_nodes = self.parent.nodes
+        parent_nodes.remove(self)
+        try:
+            index = parent_nodes.index(before_node)
+        except ValueError as _error:
+            print('Engine warning: Node.order_before() takes a sibling node as an argument, '
+                  f'but a non-sibling node (got {before_node}) was supplied!')
+            raise _error
+        parent_nodes.insert(index, self)
+
+    def order(self, index: int):
+        """Move this node before the given index of the parent's node list
+        using the list.insert() method. Negative indices from end."""
+        parent_nodes = self.parent.nodes
+        parent_nodes.remove(self)
+        parent_nodes.insert(self, index)
+
 
 class SpriteNode(Node, pygame.sprite.DirtySprite):
     def __init__(self, node_props: NodeProps, groups=None, image=None, fill_color=None):

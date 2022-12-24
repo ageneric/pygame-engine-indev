@@ -16,6 +16,11 @@ JSON_CAN_SERIALISE_TYPES = (int, bool, float, str, list, tuple, dict)
 
 node_to_template = {}
 
+class NodeClassNotFound(engine.node.Node):
+    def __init__(self, node_props, *args, **kwargs):  # accept any arguments
+        super().__init__(node_props)
+
+
 def read_local_json(filename: str):
     try:
         with open((Path(sys.path[1]) / filename).with_suffix('.json'), 'r') as f:
@@ -80,9 +85,12 @@ def instantiate(scene, template: dict, parent):
         arguments_buffer.update(arguments)
         arguments = arguments_buffer
 
-    new_node = inst_class(node_props, *arguments.values(), **keyword_arguments)
-    if template.get('layer', None) is not None:
-        new_node.groups()[0].change_layer(new_node, template['layer'])
+    if callable(inst_class):
+        new_node = inst_class(node_props, *arguments.values(), **keyword_arguments)
+        if template.get('layer', None) is not None:
+            new_node.groups()[0].change_layer(new_node, template['layer'])
+    else:
+        new_node = NodeClassNotFound(node_props)
 
     node_to_template[new_node] = template
     return new_node
@@ -96,11 +104,7 @@ def resolve_class(scene, name):
     elif name in scene.user_classes:
         return scene.user_classes[name]
     else:
-        return NodeClassNotFound
-
-class NodeClassNotFound(engine.node.Node):
-    def __init__(self, node_props, *args, **kwargs):  # accept any arguments
-        super().__init__(node_props)
+        return None
 
 def register_node(scene, parent_template: dict, new_node):
     """Create a template for the new node and add it to the

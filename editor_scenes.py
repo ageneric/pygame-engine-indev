@@ -33,6 +33,7 @@ class Editor(Scene):
         super().__init__(screen, clock)
         self.create_draw_group((20, 20, 24))
 
+        self._recent_message = ''  # display error messages
         self.user_module = user_module
         self.user_path = user_path
         self.user_scene, self.user_scene_rect, self.user_surface, _error = self.create_user_scene()
@@ -42,6 +43,7 @@ class Editor(Scene):
         self.selected_node = None
         self.play = False
         self.help_opened = False
+        self._recent_frames_ms = []  # used by frame speed counter
 
         # Define constant graphical settings and load graphics
         scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
@@ -89,9 +91,6 @@ class Editor(Scene):
             'Help', lambda: self.action_show_help('Introduction'), style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8))
 
-        self._recent_frames_ms = []  # used by frame speed counter
-        self._recent_message = ''  # display error messages
-
     def resize(self):
         user_scene_width = self.user_scene_rect.width
         scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
@@ -132,7 +131,7 @@ class Editor(Scene):
         try:
             user_rects = self.user_scene.draw()
         except Exception as _error:
-            self._recent_message = 'draw !!! ' + str(_error)
+            self._recent_message = 'draw error! ' + str(_error)
             user_rects = []
         
         if not self.help_opened:
@@ -206,7 +205,7 @@ class Editor(Scene):
             self.action_play(False, suppress_message=True)
 
     def create_user_scene(self):
-        """Returns scene instance, scene rect, scene surface, error."""
+        """Returns (scene instance, scene rect, scene surface, exception/None)."""
         configuration = template.read_local_json('project_config')
         user_scene_width = configuration['display_width']
         user_scene_height = configuration['display_height']
@@ -270,7 +269,7 @@ class Editor(Scene):
             self.show_error(_error, 'reload')
 
     def show_error(self, error, context='', after_context=''):
-        self._recent_message = f'{context} !!! {error} (see console)'
+        self._recent_message = f'{context} error! {error} (see console)'
         print(f'Hit {str(type(error).__name__)} ({error}) in {context}{after_context}:')
         print_tb(error.__traceback__)
 

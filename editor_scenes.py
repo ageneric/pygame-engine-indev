@@ -33,6 +33,7 @@ class Editor(Scene):
         super().__init__(screen, clock)
         self.create_draw_group((20, 20, 24))
 
+        self._recent_message = ''  # display error messages
         self.user_module = user_module
         self.user_path = user_path
         self.user_scene, self.user_scene_rect, self.user_surface, _error = self.create_user_scene()
@@ -42,9 +43,10 @@ class Editor(Scene):
         self.selected_node = None
         self.play = False
         self.help_opened = False
+        self._recent_frames_ms = []  # used by frame speed counter
 
         # Define constant graphical settings and load graphics
-        scene_tab_x = self.screen_size_x - self.user_scene_rect.width - TAB_PADDING
+        scene_tab_x = self.screen_width - self.user_scene_rect.width - TAB_PADDING
         tab_style = interface.Style(background_editor=(20, 20, 24),
             background=(48, 48, 50), background_indent=(60, 60, 60),
             tabsize=20, color=C_LIGHT, color_scroll=(104, 104, 104))
@@ -57,44 +59,41 @@ class Editor(Scene):
 
         # Initialise the tabs
         self.tree_tab = TreeTab(NodeProps(
-            self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING),
-            self.draw_group, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
+            self, TAB_PADDING, 48, scene_tab_x - TAB_PADDING * 2, self.screen_height // 2 - TAB_PADDING),
+            self.group_draw, self.user_scene, self.icon_sheet, ui_style, style=tab_style)
         self.inspector_tab = InspectorTab(NodeProps(
-            self, TAB_PADDING, 68 + self.screen_size_y // 2, scene_tab_x - TAB_PADDING*2,
-            self.screen_size_y // 2 - 60 - TAB_PADDING * 2),
-            self.draw_group, ui_style, style=tab_style)
+            self, TAB_PADDING, 68 + self.screen_height // 2, scene_tab_x - TAB_PADDING * 2,
+                               self.screen_height // 2 - 60 - TAB_PADDING * 2),
+            self.group_draw, ui_style, style=tab_style)
         self.scene_tab = SceneTab(NodeProps(
             self, scene_tab_x, 48, self.user_scene_rect.width, 0),
-            self.draw_group, self.user_scene.draw_group, self.user_scene, style=tab_style)
+            self.group_draw, self.user_scene.group_draw, self.user_scene, style=tab_style)
         self.project_file_tab = ProjectFileTab(NodeProps(
             self, scene_tab_x, 72 + self.user_scene_rect.height + TAB_PADDING, self.user_scene_rect.width,
-            self.screen_size_y - self.user_scene_rect.height - TAB_PADDING*2 - 72),
-            self.draw_group, self.icon_sheet, ui_style, self.font_reading, style=tab_style)
+                               self.screen_height - self.user_scene_rect.height - TAB_PADDING * 2 - 72),
+            self.group_draw, self.icon_sheet, ui_style, self.font_reading, style=tab_style)
         self.help_tab = HelpTab(NodeProps(
             self, scene_tab_x, 48, self.user_scene_rect.width, self.user_scene_rect.height, enabled=False),
-            self.draw_group, self.font_reading, style=tab_style)
+            self.group_draw, self.font_reading, style=tab_style)
 
         # Initialise the menu bar
         self.toggle_play = interface.Toggle(NodeProps(self, scene_tab_x, 2, 60, 22),
-                                            self.draw_group, 'Play', self.action_play, checked=self.play, style=menu_bar_style,
+                                            self.group_draw, 'Play', self.action_play, checked=self.play, style=menu_bar_style,
                                             background_checked=(48, 32, 108), image=self.icon_sheet.load_image(pygame.Rect(3, 1, 1, 1), 8))
         self.button_reload = interface.Button(
-            NodeProps(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_x=1),
-            self.draw_group, '   Reload', self.action_reload, style=menu_bar_style,
+            NodeProps(self, scene_tab_x - TAB_PADDING, 2, 68, 22, anchor_horizontal=1),
+            self.group_draw, '   Reload', self.action_reload, style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(0, 2, 1, 1), 8))
         button_save = interface.Button(NodeProps(self, TAB_PADDING, 2, 48, 22),
-                                       self.draw_group, 'Save', self.save_scene_changes, style=menu_bar_style)
+                                       self.group_draw, 'Save', self.save_scene_changes, style=menu_bar_style)
         self.button_show_help = interface.Button(NodeProps(
-            self, self.screen_size_x - TAB_PADDING, 2, 60, 22, anchor_x=1), self.draw_group,
+            self, self.screen_width - TAB_PADDING, 2, 60, 22, anchor_horizontal=1), self.group_draw,
             'Help', lambda: self.action_show_help('Introduction'), style=menu_bar_style,
             image=self.icon_sheet.load_image(pygame.Rect(3, 0, 1, 1), 8))
 
-        self._recent_frames_ms = []  # used by frame speed counter
-        self._recent_message = ''  # display error messages
-
     def resize(self):
         user_scene_width = self.user_scene_rect.width
-        scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
+        scene_tab_x = self.screen_width - user_scene_width - TAB_PADDING
         self.user_scene_rect.x = scene_tab_x
 
         # Update sizes
@@ -103,16 +102,16 @@ class Editor(Scene):
         else:
             self.tree_tab.enabled = self.inspector_tab.enabled = True
             self.tree_tab.transform.size = (
-                scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - TAB_PADDING)
+                scene_tab_x - TAB_PADDING * 2, self.screen_height // 2 - TAB_PADDING)
             self.inspector_tab.transform.size = (
-                scene_tab_x - TAB_PADDING*2, self.screen_size_y // 2 - 60 - TAB_PADDING * 2)
+                scene_tab_x - TAB_PADDING * 2, self.screen_height // 2 - 60 - TAB_PADDING * 2)
             self.project_file_tab.transform.size = (
-                user_scene_width, self.screen_size_y - self.user_scene_rect.height - TAB_PADDING * 2 - 72)
+                user_scene_width, self.screen_height - self.user_scene_rect.height - TAB_PADDING * 2 - 72)
         # Update positions
-        self.inspector_tab.transform.y = 68 + self.screen_size_y // 2
+        self.inspector_tab.transform.y = 68 + self.screen_height // 2
         for right_tab in self.scene_tab, self.project_file_tab, self.help_tab:
             right_tab.transform.x = scene_tab_x
-        self.button_show_help.transform.x = self.screen_size_x - 5
+        self.button_show_help.transform.x = self.screen_width - 5
         self.scene_tab.transform.width = self.user_scene_rect.width
         self.toggle_play.transform.x = scene_tab_x
         self.button_reload.transform.x = scene_tab_x - TAB_PADDING
@@ -132,7 +131,7 @@ class Editor(Scene):
         try:
             user_rects = self.user_scene.draw()
         except Exception as _error:
-            self._recent_message = 'draw !!! ' + str(_error)
+            self._recent_message = 'draw error! ' + str(_error)
             user_rects = []
         
         if not self.help_opened:
@@ -150,7 +149,7 @@ class Editor(Scene):
             if self.scene_tab.debug_show_dirty:
                 for rect in user_rects:
                     pygame.draw.rect(self.screen, (min(255, rect.width + rect.height + 160), 60, 160), rect, 1)
-                    self.draw_group.repaint_rect(rect)
+                    self.group_draw.repaint_rect(rect)
 
         # TODO: consider moving this frame counter to an appropriate tab
         rawtime = self.clock.get_rawtime()
@@ -162,10 +161,10 @@ class Editor(Scene):
             message = f'{rawtime}ms processing / frame'
 
         rect = text.draw(self.screen, message, (62, 5), color=C_LIGHT_ISH, font=self.font_reading)
-        self.draw_group.repaint_rect(rect)
+        self.group_draw.repaint_rect(rect)
         rect = text.draw(self.screen, self._recent_message, (self.toggle_play.transform.x + 68, 5),
                          color=C_LIGHT_ISH, font=self.font_reading)
-        self.draw_group.repaint_rect(rect)
+        self.group_draw.repaint_rect(rect)
         return rects
 
     def handle_events(self, pygame_events):
@@ -176,9 +175,9 @@ class Editor(Scene):
                 self.resize()
             elif event.type == pygame.VIDEOEXPOSE:
                 # Display is cleared when minimised, so redraw all elements
-                self.draw_group.repaint_rect(self.screen.get_rect())
-                if getattr(self.user_scene, 'draw_group', None) is not None:
-                    self.user_scene.draw_group.repaint_rect(self.user_scene.screen.get_rect())
+                self.group_draw.repaint_rect(self.screen.get_rect())
+                if getattr(self.user_scene, 'group_draw', None) is not None:
+                    self.user_scene.group_draw.repaint_rect(self.user_scene.screen.get_rect())
             elif event.type == pygame.KEYDOWN:
                 if self.selected_node is not None:
                     if event.mod & pygame.KMOD_SHIFT:
@@ -206,12 +205,12 @@ class Editor(Scene):
             self.action_play(False, suppress_message=True)
 
     def create_user_scene(self):
-        """Returns scene instance, scene rect, scene surface, error."""
+        """Returns (scene instance, scene rect, scene surface, exception/None)."""
         configuration = template.read_local_json('project_config')
         user_scene_width = configuration['display_width']
         user_scene_height = configuration['display_height']
 
-        scene_tab_x = self.screen_size_x - user_scene_width - TAB_PADDING
+        scene_tab_x = self.screen_width - user_scene_width - TAB_PADDING
         scene_rect = pygame.Rect(scene_tab_x, 48, user_scene_width, user_scene_height)
         surface = pygame.Surface(scene_rect.size)
 
@@ -270,18 +269,18 @@ class Editor(Scene):
             self.show_error(_error, 'reload')
 
     def show_error(self, error, context='', after_context=''):
-        self._recent_message = f'{context} !!! {error} (see console)'
+        self._recent_message = f'{context} error! {error} (see console)'
         print(f'Hit {str(type(error).__name__)} ({error}) in {context}{after_context}:')
         print_tb(error.__traceback__)
 
     def add_node(self, class_name, parent):
         inst_class = template.resolve_class(self.user_scene, class_name)
         if issubclass(inst_class, SpriteNode):
-            new_node = inst_class(NodeProps(parent, 0, 0, 40, 40), self.user_scene.draw_group)
+            new_node = inst_class(NodeProps(parent, 0, 0, 40, 40), self.user_scene.group_draw)
         else:
             new_node = inst_class(NodeProps(parent, 0, 0, 0, 0))
         if not self.play and getattr(self.user_scene, 'template', False) and parent in template.node_to_template:
-            template.register_node(self.user_scene, template.node_to_template[parent], new_node)
+            template.register_node(self.user_scene, new_node)
 
     def save_scene_changes(self):
         if getattr(self.user_scene, 'template', False):
@@ -319,9 +318,9 @@ class Select(Scene):
         self.create_draw_group((32, 32, 34))
         self.project_path = None
 
-        interface.Button(NodeProps(self, 20, 60, 160, 100), self.draw_group, 'Open Existing Project',
+        interface.Button(NodeProps(self, 20, 60, 160, 100), self.group_draw, 'Open Existing Project',
                          self.select_project_path, color=C_LIGHT)
-        interface.Button(NodeProps(self, 200, 60, 160, 100), self.draw_group, 'Open Demo Project',
+        interface.Button(NodeProps(self, 200, 60, 160, 100), self.group_draw, 'Open Demo Project',
                          self.demo_project, color=C_LIGHT, background=(18, 26, 20))
         self.font = pygame.font.SysFont('Calibri', 24, bold=True)
 

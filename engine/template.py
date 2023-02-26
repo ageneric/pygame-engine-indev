@@ -11,10 +11,15 @@ import engine.interface
 
 NODE_CLASSES = ('Node', 'SpriteNode')
 INTERFACE_CLASSES = ('Button', 'Toggle', 'TextEntry', 'Scrollbar')
-DATA_NODE = ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y', 'enabled')
+DATA_NODE = ('x', 'y', 'width', 'height', 'anchor_horizontal', 'anchor_vertical', 'enabled')
 JSON_CAN_SERIALISE_TYPES = (int, bool, float, str, list, tuple, dict)
 
 node_to_template = {}
+
+class NodeClassNotFound(engine.node.Node):
+    def __init__(self, node_props, *args, **kwargs):  # accept any arguments
+        super().__init__(node_props)
+
 
 def read_local_json(filename: str):
     try:
@@ -34,7 +39,7 @@ def write_local_json(filename, data):
     except OSError as _error:
         print(f'Critical error writing to file {filename}:\n    {_error}')
 
-def load_nodes_wrapper(scene, template: dict):
+def load_nodes(scene, template: dict):
     scene.user_classes = {}
     node_to_template.clear()
     node_to_template[scene] = template
@@ -47,15 +52,15 @@ def load_nodes_wrapper(scene, template: dict):
         scene.user_classes[name] = getattr(module, name.split('.')[-1], None)
 
     if template.get('nodes'):
-        load_nodes(scene, template['nodes'], scene)
+        _load_child_nodes(scene, template['nodes'], scene)
 
-def load_nodes(scene, tree_template: list, parent):
+def _load_child_nodes(scene, tree_template: list, parent):
     """parent is a Scene or Node or subclass of either.
     Loads the template list into the parent's nodes."""
     new_node = None
     for element in tree_template:
         if isinstance(element, list):
-            load_nodes(scene, element, new_node)
+            _load_child_nodes(scene, element, new_node)
         else:
             new_node = instantiate(scene, element, parent)
 
@@ -80,14 +85,17 @@ def instantiate(scene, template: dict, parent):
         arguments_buffer.update(arguments)
         arguments = arguments_buffer
 
-    new_node = inst_class(node_props, *arguments.values(), **keyword_arguments)
-    if template.get('layer', None) is not None:
-        new_node.groups()[0].change_layer(new_node, template['layer'])
+    if callable(inst_class):
+        new_node = inst_class(node_props, *arguments.values(), **keyword_arguments)
+        if template.get('layer', None) is not None:
+            new_node.groups()[0].change_layer(new_node, template['layer'])
+    else:
+        new_node = NodeClassNotFound(node_props)
 
     node_to_template[new_node] = template
     return new_node
 
-def resolve_class(scene, name):
+def resolve_class(scene, name: str) -> type | None:
     # Resolve the class either from an engine module or user module
     if name in NODE_CLASSES:
         return getattr(engine.node, name)
@@ -96,20 +104,15 @@ def resolve_class(scene, name):
     elif name in scene.user_classes:
         return scene.user_classes[name]
     else:
-        return NodeClassNotFound
+        return None
 
-class NodeClassNotFound(engine.node.Node):
-    def __init__(self, node_props, *args, **kwargs):  # accept any arguments
-        super().__init__(node_props)
-
-def register_node(scene, parent_template: dict, new_node):
-    """Create a template for the new node and add it to the
-    parent template's list of child node templates."""
+def register_node(scene, new_node):
+    """Create a template for the new node and add it to the global dictionary."""
     transform = new_node.transform
     new_template = {
         'class': type(new_node).__name__,
         'data_node': (transform.x, transform.y, transform.width, transform.height,
-                      transform.anchor_x, transform.anchor_y, new_node.enabled)
+                      transform.anchor_horizontal, transform.anchor_vertical, new_node.enabled)
     }
     # Get ordered list of the constructor parameters without self
     parameters = inspect.signature(new_node.__class__).parameters

@@ -45,7 +45,7 @@ class HelpTab(SpriteNode):
         super().__init__(node_props, group)
         self.style = Style.from_kwargs(kwargs)
 
-        TabHeading(NodeProps(self, 0, 0, self.transform.width, self.style.get('tabsize'), anchor_y=Anchor.bottom),
+        TabHeading(NodeProps(self, 0, 0, self.transform.width, self.style.get('tabsize'), anchor_vertical=Anchor.bottom),
                    group, 'Help & Docs', resize_to_fit=False, style=self.style, background=(30, 40, 65))
         self.scrollbar = Scrollbar(NodeProps(self, width=2), group, style=self.style)
 
@@ -144,7 +144,7 @@ class SceneTab(Node):
         super().__init__(node_props)
         self.user_scene = user_scene
         self.heading = TabHeading(NodeProps(self, 0, 0, self.transform.width, style.get('tabsize'),
-                                            anchor_y=Anchor.bottom),
+                                            anchor_vertical=Anchor.bottom),
                                   group_, 'Scene View', resize_to_fit=False, style=style)
         self.box = BorderBox(NodeProps(self, 0, 0, 0, 0), group_)
         self.debug_show_dirty = False

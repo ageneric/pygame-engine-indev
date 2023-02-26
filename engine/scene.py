@@ -1,5 +1,5 @@
 import pygame
-from .template import load_nodes_wrapper, read_local_json
+from .template import load_nodes, read_local_json
 
 class Scene:
     """Each scene manages the screen, updated and drawn
@@ -13,11 +13,12 @@ class Scene:
         self.clock = clock
 
         self.nodes = []
-        self.draw_group = None
+        self.group_draw = None
         self.groups = []
         self.flag_new_scene = None
         self.flag_new_scene_args = []
         self.background_color = None
+        self.background_surf = None
         self.event_handlers = {}
 
     def update(self):
@@ -29,8 +30,8 @@ class Scene:
         for child in self.nodes:
             child.draw()
         # Use the draw group to draw all sprites if used
-        if self.draw_group is not None:
-            return self.draw_group.draw(self.screen)
+        if self.group_draw is not None:
+            return self.group_draw.draw(self.screen)
         else:
             return None
 
@@ -65,7 +66,7 @@ class Scene:
     def handle_events(self, pygame_events):
         for event in pygame_events:
             # Redraw screen when restored or resized (minimization clears screen)
-            if hasattr(self, 'draw_group') and event.type == pygame.VIDEOEXPOSE:
+            if hasattr(self, 'group_draw') and event.type == pygame.VIDEOEXPOSE:
                 self.resize_draw_group()
             # Pass events to event handlers using the event method
             event_handler_nodes = self.event_handlers.get(event.type, None)
@@ -75,38 +76,38 @@ class Scene:
                         node.event(event)
 
     def create_draw_group(self, background_color):
-        """Sets self.draw_group to a new LayeredDirty group and fills
+        """Sets self.group_draw to a new LayeredDirty group and fills
         the background surface with the given color.
         Set background_color to None for a transparent background."""
         self.background_color = background_color
         self.background_surf = pygame.Surface(self.screen_size)
-        if self.draw_group is None:
-            self.draw_group = pygame.sprite.LayeredDirty()
+        if self.group_draw is None:
+            self.group_draw = pygame.sprite.LayeredDirty()
         if self.background_color is not None:
             self.background_surf.fill(self.background_color)
-            self.draw_group.clear(self.screen, self.background_surf)
-        self.groups.append(self.draw_group)
+            self.group_draw.clear(self.screen, self.background_surf)
+        self.groups.append(self.group_draw)
 
     def resize_draw_group(self):
-        if not isinstance(getattr(self, 'background_surf', None), pygame.Surface):
+        if not isinstance(self.background_surf, pygame.Surface):
             return
         self.background_surf = pygame.Surface(self.screen_size, 0, self.background_surf)
         if self.background_color is not None:
             self.background_surf.fill(self.background_color)
-            self.draw_group.clear(self.screen, self.background_surf)
-        self.draw_group.repaint_rect(self.screen.get_rect())
+            self.group_draw.clear(self.screen, self.background_surf)
+        self.group_draw.repaint_rect(self.screen.get_rect())
 
     def change_scene(self, new_scene, *args):
         self.flag_new_scene = new_scene
         self.flag_new_scene_args = args
 
-    # Helper methods, to get the current window size
+    # Helper methods to get the current window size
     @property
-    def screen_size_x(self) -> int:
+    def screen_width(self) -> int:
         return self.screen.get_width()
 
     @property
-    def screen_size_y(self) -> int:
+    def screen_height(self) -> int:
         return self.screen.get_height()
 
     @property
@@ -124,7 +125,7 @@ class Scene:
         # Initialise groups based on the template 'groups' key
         groups = template.get('groups', [])
         if len(groups) > 0:
-            # Group 0 is Scene.draw_group and its fill colour is specified
+            # Group 0 is Scene.group_draw and its fill colour is specified
             # Is the LayeredDirty used for drawing sprites
             self.create_draw_group(groups[0])
             # Further groups are used for collisions; their names are specified
@@ -133,5 +134,5 @@ class Scene:
                 self.groups.append(new_group)
                 setattr(self, group_name, new_group)
 
-        load_nodes_wrapper(self, template)
+        load_nodes(self, template)
         self.template = template

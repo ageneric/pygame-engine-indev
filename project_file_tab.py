@@ -21,7 +21,7 @@ class ProjectFileTab(SpriteNode):
         self.font_reading = font_reading
         self.icons = [icon_sheet.load_image((i, 0, 1, 1), 8) for i in (0, 1)]
 
-        TabHeading(NodeProps(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+        TabHeading(NodeProps(self, 0, 0, self.transform.width, anchor_vertical=Anchor.bottom),
                    group, 'Project Files', style=self.style)
         self.class_menu = Node(NodeProps(self, 0, 75, enabled=False))
 

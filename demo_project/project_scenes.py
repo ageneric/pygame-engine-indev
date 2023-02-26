@@ -32,19 +32,19 @@ class ExampleScene(Scene):
         # Nodes can be created through code, though changes to
         # these arguments in the Inspector tab will not persist
         demo_button_2 = interface.Button(NodeProps(self.nodes[1], 45, 30, 250, 40),
-                                         self.draw_group, 'Change my layer in the Inspector',
+                                         self.group_draw, 'Change my layer in the Inspector',
                                          demo_callback, style=blue_style)
 
         image = pygame.image.load('Assets/Placeholder.png').convert()
-        visible_toggle = interface.Toggle(NodeProps(self, 330, 63, 32, 32), self.draw_group,
+        visible_toggle = interface.Toggle(NodeProps(self, 330, 63, 32, 32), self.group_draw,
                                           '+/-', self.use_visible_toggle, image=image, color=C_DARK)
-        visible_toggle.order_before(self.nodes[2])
+        visible_toggle.reorder_before(self.nodes[2])
 
-        self.test_entry = interface.TextEntry(NodeProps(self, 10, 125, 200, 20), self.draw_group,
+        self.test_entry = interface.TextEntry(NodeProps(self, 10, 125, 200, 20), self.group_draw,
                                               'Text value', demo_callback, style=blue_style)
 
         self.test_grid = interface.SpriteListLayout(NodeProps(self.nodes[3], 0, 50, 200, 200),
-                                                    self.draw_group, grid_example_generator(),
+                                                    self.group_draw, grid_example_generator(),
                                                     background=C_LIGHT)
 
     def use_visible_toggle(self, checked):

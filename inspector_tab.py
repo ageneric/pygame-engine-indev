@@ -9,7 +9,7 @@ from engine.spritesheet import tint_surface
 
 from other_tab import TabHeading, string_color
 
-INSPECTOR_NAME = 'Attributes'
+INSPECTOR_NAME = 'Inspect'
 
 class LiteralEntry(TextEntry):
     NUMERIC = '1234567890.-x'
@@ -59,12 +59,13 @@ class InspectorLabel(SpriteNode):
             node_name = type(self.parent.selected_node).__name__
             surface = text.render(node_name, color=string_color(node_name))
             message = str(self.parent.selected_node).replace(node_name, '#')
-            text.draw(self.image, message, (9 + surface.get_rect().width, 2))
+            text.draw(self.image, message, (9 + surface.get_rect().width, 2),
+                      self.parent.style.get('color_scroll'))
             self.image.blit(surface, (5, 2))
 
 
 transform_types = ((('x', 'y'), (float, int)), (('width', 'height'), (int,)),
-                   (('anchor_x', 'anchor_y'), (float, int)))
+                   (('anchor_horizontal', 'anchor_vertical'), (float, int)))
 
 class InspectorTab(SpriteNode):
     _layer = 0
@@ -74,7 +75,7 @@ class InspectorTab(SpriteNode):
         self.style = Style.from_kwargs(kwargs)
 
         self.header = TabHeading(NodeProps(
-            self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            self, 0, 0, self.transform.width, anchor_vertical=Anchor.bottom),
             group, INSPECTOR_NAME, style=self.style)
         self.scrollbar = Scrollbar(NodeProps(self, width=2), group, style=self.style)
         group.change_layer(self.scrollbar, 2)
@@ -138,7 +139,7 @@ class InspectorTab(SpriteNode):
         self.label_top.enabled = True
         self.label_top.transform.width = self.transform.width
         self.label_top.dirty = 1
-        self.header.message = INSPECTOR_NAME + ' (Inspect)'
+        self.header.message = INSPECTOR_NAME + ' Attributes'
         self.header.dirty = 1
         self.dirty = 1
 
@@ -194,7 +195,7 @@ class InspectorTab(SpriteNode):
 
         for widget in self.widget_holder.nodes:
             if isinstance(widget, LiteralEntry) or widget is self.toggle_enabled:
-                if widget.bound in ('x', 'y', 'width', 'height', 'anchor_x', 'anchor_y',
+                if widget.bound in ('x', 'y', 'width', 'height', 'anchor_horizontal', 'anchor_vertical',
                                     '_layer', 'enabled', 'groups'):
                     widget.transform.width = half_widget_width
                 if widget.bound in ('_layer', 'enabled', 'groups'):

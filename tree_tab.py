@@ -191,7 +191,7 @@ class TreeTab(SpriteNode):
         self.style = interface.Style.from_kwargs(kwargs)
 
         TabHeading(
-            NodeProps(self, 0, 0, self.transform.width, anchor_y=Anchor.bottom),
+            NodeProps(self, 0, 0, self.transform.width, anchor_vertical=Anchor.bottom),
             group, 'Tree View', style=self.style)
         self.grid = TreeTabGrid(
             NodeProps(self, 5, 25, max(0, self.transform.width - 10), max(0, self.transform.height - 120)),

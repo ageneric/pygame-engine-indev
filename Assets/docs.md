@@ -35,7 +35,7 @@ To get the top-level Nodes list, use:
 
 Other Scene properties that may be useful are:
 `self.groups`
-`self.screen_size_x, self.screen_size_y, self.screen_size`
+`self.screen_width, self.screen_height, self.screen_size`
 (where self is a Scene)
 
 To change the current Scene during play, use:
@@ -65,7 +65,7 @@ Position is relative to the parent, increases to the right and left, and is meas
 Size is measured in pixels. Resizing takes place about the anchor point. The properties are:
 `> width, height, size`
 The anchor point position is set as a proportion of the size, where (0, 0) is left, top and (1, 1) is right, bottom. The properties are:
-`> anchor_x, anchor_y, anchor_position`
+`> anchor_horizontal, anchor_vertical, anchor_position`
 
 To get the on-screen rectangle of the Node, instead of its relative position, use:
 `self.rect.position`
@@ -136,8 +136,8 @@ A scene has a list of groups. This is displayed in the Attributes inspector when
 `self.groups`
 (where self is a Scene)
 
-Group 0 is the draw group, used for drawing all sprites. To get this group, use either:
-`self.draw_group`
+Group 0 is the group used for drawing all sprites. To get this group, use either:
+`self.group_draw`
 `self.groups[0]`
 (where self is a Scene)
 

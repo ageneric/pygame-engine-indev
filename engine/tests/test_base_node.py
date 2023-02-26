@@ -18,7 +18,7 @@ def test_transform():
         Transform(-11, -2, 111.0, 111.0, -1, -1)
     ]
     for i in range(128):
-        test_transforms.append(Transform(*random_transform_values(random)))
+        test_transforms.append(Transform(,, )
 
     print("Test: A transform's 'positive size' has non-negative width and height.")
     for transform in test_transforms:
@@ -29,7 +29,7 @@ def test_transform():
           + 'excluding where size is negative or too large.)')
     for transform in test_transforms:
         rect_transform = Transform.from_rect(
-            transform.rect(), transform.anchor_x, transform.anchor_y)
+            transform.rect(), transform.anchor_horizontal, transform.anchor_vertical)
         if 0 <= transform.width <= 8192 and 0 <= transform.height < 8192:
             comparisons = (
                 (rect_transform.x, transform.x), (rect_transform.width, transform.width),

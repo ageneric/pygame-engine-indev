@@ -6,15 +6,16 @@ _NODE_VALUE_WARNING = (
     '\nCheck that the first element is a Node, Scene, or related type.')
 
 class NodeProps(NamedTuple):
-    """NodeProps(parent, x=0, y=0, width=0, height=0, anchor_x=0, anchor_y=0, enabled=True)
-    The base node properties used to initialise a node. Has default values."""
+    """NodeProps(parent, x=0, y=0, width=0, height=0, anchor_horizontal=0,
+                 anchor_vertical=0, enabled=True)
+    The base node properties used to initialise a node."""
     parent: object
     x: float = 0
     y: float = 0
     width: int = 0
     height: int = 0
-    anchor_x: float = 0  # proportion of size between 0 (left) and 1 (right)
-    anchor_y: float = 0  # proportion of size between 0 (top) and 1 (bottom)
+    anchor_horizontal: float = 0  # proportion of size between 0 (left) and 1 (right)
+    anchor_vertical: float = 0  # proportion of size between 0 (top) and 1 (bottom)
     enabled: bool = True
 
 class Anchor:
@@ -25,50 +26,50 @@ class Anchor:
 class Transform:
     """A data structure that stores position, size and relative anchor position.
     Every node will hold an instance of this class as Node.transform."""
-    __slots__ = 'x', 'y', 'width', 'height', '_anchor_x', '_anchor_y', 'transform_update'
+    __slots__ = 'x', 'y', 'width', 'height', '_anchor_horizontal', '_anchor_vertical', '_transform_update'
 
     def __init__(self, x: float, y: float, width=0, height=0,
-                 anchor_x=Anchor.left, anchor_y=Anchor.top, transform_update=None):
-        self.transform_update = None
+                 anchor_horizontal=Anchor.left, anchor_vertical=Anchor.top, transform_update=None):
+        self._transform_update = None
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self._anchor_x = anchor_x  # proportion of size between 0 (left) and 1 (right)
-        self._anchor_y = anchor_y  # proportion of size between 0 (top) and 1 (bottom)
-        self.transform_update = transform_update  # observes changes to the transform
+        self._anchor_horizontal = anchor_horizontal  # proportion of size between 0 (left) and 1 (right)
+        self._anchor_vertical = anchor_vertical  # proportion of size between 0 (top) and 1 (bottom)
+        self._transform_update = transform_update  # observes changes to the transform
 
     def __repr__(self) -> str:
         return (f'Transform({self.x}, {self.y}, {self.width}, {self.height}, '
-                f'{self._anchor_x}, {self._anchor_y})')
+                f'{self._anchor_horizontal}, {self._anchor_vertical})')
 
     def __str__(self) -> str:
         position_size_text = (f'Transform ({round(self.x, 3)}, {round(self.y, 3)}) '
                               f'{self.width}*{self.height}')
-        if self._anchor_x == 0 and self._anchor_y == 0:
+        if self._anchor_horizontal == 0 and self._anchor_vertical == 0:
             return f'<{position_size_text}>'
         else:
-            return f'<{position_size_text} anchored at ({self._anchor_x}, {self._anchor_y})>'
+            return f'<{position_size_text} anchored at ({self._anchor_horizontal}, {self._anchor_vertical})>'
 
     # Alternative constructor and conversions for use by use
     @classmethod
-    def from_rect(cls, rect, anchor_x: float = 0, anchor_y: float = 0):
+    def from_rect(cls, rect, anchor_horizontal: float = 0, anchor_vertical: float = 0):
         """Instantiate a Transform from a Pygame Rect (and optionally an anchor)."""
-        return cls(rect.x + rect.width * anchor_x, rect.y + rect.height * anchor_y,
-                   rect.width, rect.height, anchor_x, anchor_y)
+        return cls(rect.x + rect.width * anchor_horizontal, rect.y + rect.height * anchor_vertical,
+                   rect.width, rect.height, anchor_horizontal, anchor_vertical)
 
     def rect(self):
         return pygame.Rect(*self.rect_position(self.x, self.y), *self.get_surface_size())
 
     def rect_position(self, x: float, y: float) -> (int, int):
-        return int(x - self.width * self._anchor_x), int(y - self.height * self._anchor_y)
+        return int(x - self.width * self._anchor_horizontal), int(y - self.height * self._anchor_vertical)
 
     # Called when any attribute is set
     # May alternatively be achieved using properties
     def __setattr__(self, name, val):
         object.__setattr__(self, name, val)
-        if name in ('x', 'y', 'width', 'height') and self.transform_update is not None:
-            self.transform_update(name)
+        if name in ('x', 'y', 'width', 'height') and self._transform_update is not None:
+            self._transform_update(name)
 
     # Getters and setters for transform properties
     @property
@@ -96,35 +97,35 @@ class Transform:
 
     @property
     def anchor_position(self) -> (float, float):
-        return self._anchor_x, self._anchor_y
+        return self._anchor_horizontal, self._anchor_vertical
 
     @anchor_position.setter
-    def anchor_position(self, anchor_x_y: (float, float)):
-        self._anchor_x, self._anchor_y = anchor_x_y
+    def anchor_position(self, anchor_horizontal_y: (float, float)):
+        self._anchor_horizontal, self._anchor_vertical = anchor_horizontal_y
 
     @property
-    def anchor_x(self) -> float:
-        return self._anchor_x
+    def anchor_horizontal(self) -> float:
+        return self._anchor_horizontal
 
     @property
-    def anchor_y(self) -> float:
-        return self._anchor_y
+    def anchor_vertical(self) -> float:
+        return self._anchor_vertical
 
-    @anchor_x.setter
-    def anchor_x(self, anchor_x: float):
+    @anchor_horizontal.setter
+    def anchor_horizontal(self, anchor_horizontal: float):
         # Shift x value so that the rectangle stays in place
-        new_x = self.x + (anchor_x - self._anchor_x) * self.width
+        new_x = self.x + (anchor_horizontal - self._anchor_horizontal) * self.width
         # Set the x attribute directly, no _transform_update is needed
         object.__setattr__(self, 'x', new_x)
-        self._anchor_x = anchor_x
+        self._anchor_horizontal = anchor_horizontal
 
-    @anchor_y.setter
-    def anchor_y(self, anchor_y: float):
+    @anchor_vertical.setter
+    def anchor_vertical(self, anchor_vertical: float):
         # Shift y value so that the rectangle stays in place
-        new_y = self.y + (anchor_y - self._anchor_y) * self.height
+        new_y = self.y + (anchor_vertical - self._anchor_vertical) * self.height
         # Set the y attribute directly, no _transform_update is needed
         object.__setattr__(self, 'y', new_y)
-        self._anchor_y = anchor_y
+        self._anchor_vertical = anchor_vertical
 
 
 class Node:
@@ -232,13 +233,13 @@ class Node:
         """Fully delete a node and remove it from the tree."""
         if self in self.parent.nodes:
             self.parent.nodes.remove(self)
-        self.transform.transform_update = None
+        self.transform._transform_update = None
         if hasattr(self, 'event_handler'):
             self.scene().remove_event_handler(self)
         for i in range(len(self.nodes)):
             self.nodes[0].remove()
 
-    def order_before(self, before_node):
+    def reorder_before(self, before_node):
         """Move this node before a sibling node in the parent's node list
         using the list.insert() method. This method will not change the parent."""
         parent_nodes = self.parent.nodes
@@ -251,7 +252,7 @@ class Node:
             raise _error
         parent_nodes.insert(index, self)
 
-    def order(self, index: int):
+    def reorder(self, index: int):
         """Move this node before the given index of the parent's node list
         using the list.insert() method. Negative indices from end."""
         parent_nodes = self.parent.nodes
